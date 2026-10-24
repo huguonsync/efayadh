@@ -160,6 +160,41 @@
         }
         .badge-success { background: #d1fae5; color: #065f46; }
         .badge-warning { background: #fef3c7; color: #92400e; }
+        .badge-holiday { background: #e0f2fe; color: #0369a1; }
+        .badge-weekend { background: #fef08a; color: #854d0e; }
+
+        /* Highlight baris hujung minggu */
+        .tr-weekend {
+            background-color: #fffdf5 !important;
+        }
+        .tr-weekend:hover {
+            background-color: #fef9c3 !important;
+        }
+
+        .batch-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .checkbox-cell {
+            text-align: center;
+            width: 40px;
+        }
+        
+        .checkbox-custom {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            margin: 0;
+            accent-color: var(--primary-dark);
+        }
 
         .hidden {
             display: none !important;
@@ -413,7 +448,7 @@
                             <option value="07">Julai</option>
                             <option value="08">Ogos</option>
                             <option value="09">September</option>
-                            <option value="10">Oktober</option>
+                            <option value="10" selected>Oktober</option>
                             <option value="11">November</option>
                             <option value="12">Disember</option>
                         </select>
@@ -430,16 +465,28 @@
                             <option value="">-- Semua Status --</option>
                             <option value="Hadir">Hadir</option>
                             <option value="Tidak Hadir">Tidak Hadir</option>
+                            <option value="Cuti Am">Cuti Am</option>
                             <option value="Belum Disahkan">Tindakan Diperlukan</option>
                         </select>
                     </div>
+                </div>
+
+                <!-- Bar Tindakan Pukal (Batch Actions) -->
+                <div class="batch-bar">
+                    <span style="font-weight: 600; font-size: 0.85rem; color: var(--text-light);">Tindakan Pukal:</span>
+                    <button class="btn btn-primary" style="padding: 6px 14px; font-size: 0.85rem;" onclick="batchVerifySelected()">✓ Sahkan Terpilih (<span class="selectedCount">0</span>)</button>
+                    <button class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.85rem;" onclick="batchMarkHolidaySelected()">🏖️ Tanda Cuti Am (<span class="selectedCount">0</span>)</button>
+                    <button class="btn btn-outline" style="padding: 6px 14px; font-size: 0.85rem;" onclick="selectWeekendRows()">📅 Pilih Semua Sabtu & Ahad</button>
                 </div>
 
                 <div style="overflow-x: auto;">
                     <table id="allAttendanceTable">
                         <thead>
                             <tr>
-                                <th>Tarikh</th>
+                                <th class="checkbox-cell">
+                                    <input type="checkbox" id="selectAllCheckbox" class="checkbox-custom" onchange="toggleSelectAll(this)" title="Pilih Semua">
+                                </th>
+                                <th>Tarikh & Hari</th>
                                 <th>Masuk</th>
                                 <th>Pulang</th>
                                 <th>Nama Kakitangan</th>
@@ -878,6 +925,22 @@
             document.getElementById('statBelum').innerText = belumCount < 0 ? 0 : belumCount;
         }
 
+        // Pembantu untuk mendapatkan maklumat hari dan status hujung minggu
+        function getDayInfo(dateString) {
+            const parts = dateString.split('/');
+            if(parts.length !== 3) return { dayName: '', isWeekend: false };
+            const day = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1;
+            const year = parseInt(parts[2], 10);
+            const d = new Date(year, month, day);
+            const dayIndex = d.getDay();
+            const names = ['Ahad', 'Isnin', 'Selasa', 'Rabu', 'Khamis', 'Jumaat', 'Sabtu'];
+            return {
+                dayName: names[dayIndex],
+                isWeekend: (dayIndex === 0 || dayIndex === 6)
+            };
+        }
+
         function renderAdminAttendance() {
             const tbody = document.querySelector('#allAttendanceTable tbody');
             tbody.innerHTML = '';
@@ -886,51 +949,304 @@
             const staffFilter = document.getElementById('filterStaff').value;
             const statusFilter = document.getElementById('filterStatus').value;
             
-            let filteredList = appState.attendanceList.filter(record => {
-                let pass = true;
+            // Reset butang select all
+            const masterCheck = document.getElementById('selectAllCheckbox');
+            if(masterCheck) masterCheck.checked = false;
+            updateSelectedCount();
+
+            let displayList = [];
+
+            // Jika Guru Besar memilih seorang kakitangan, jana jadual penuh sepanjang bulan (30/31 hari)
+            if (staffFilter) {
+                const staffObj = appState.staffList.find(s => String(s.id).trim().toUpperCase() === String(staffFilter).trim().toUpperCase());
+                const staffName = staffObj ? staffObj.name : 'Staf';
+                const year = 2026;
+                const month = monthFilter ? parseInt(monthFilter, 10) : 10;
+                const totalDays = new Date(year, month, 0).getDate(); // Jumlah hari dalam bulan (contoh: 31 hari Oktober)
                 
-                if (monthFilter) {
-                    const parts = record.date.split('/');
-                    if (parts.length > 1) {
-                        const recordMonth = parts[1].padStart(2, '0');
-                        if (recordMonth !== monthFilter) pass = false;
-                    }
-                }
-                
-                // Pembaikan: Bandingkan ID sebagai Text(String) dengan membuang ruang kosong 
-                if (staffFilter && String(record.staffId).trim().toUpperCase() !== String(staffFilter).trim().toUpperCase()) {
-                    pass = false;
-                }
-                
-                if (statusFilter) {
-                    if (statusFilter === 'Belum Disahkan') {
-                        if (record.verified !== 'Belum Disahkan') pass = false;
+                const staffRecords = appState.attendanceList.filter(r => String(r.staffId).trim().toUpperCase() === String(staffFilter).trim().toUpperCase());
+
+                for (let d = 1; d <= totalDays; d++) {
+                    const dd = String(d).padStart(2, '0');
+                    const mm = String(month).padStart(2, '0');
+                    const dateStr = `${dd}/${mm}/${year}`;
+                    const dayInfo = getDayInfo(dateStr);
+
+                    const existing = staffRecords.find(r => r.date === dateStr);
+
+                    if (existing) {
+                        displayList.push({
+                            recordId: existing.recordId,
+                            date: dateStr,
+                            timeIn: existing.timeIn,
+                            timeOut: existing.timeOut,
+                            staffId: existing.staffId,
+                            name: existing.name,
+                            status: existing.status,
+                            catatan: existing.catatan || '-',
+                            verified: existing.verified,
+                            dayName: dayInfo.dayName,
+                            isWeekend: dayInfo.isWeekend,
+                            isVirtual: false
+                        });
                     } else {
-                        if (record.status !== statusFilter) pass = false;
+                        // Jana rekod maya untuk hari yang belum direkodkan dalam spreadsheet
+                        const defaultStatus = dayInfo.isWeekend ? 'Hujung Minggu' : 'Tiada Rekod';
+                        const defaultCatatan = dayInfo.isWeekend ? 'Cuti Hujung Minggu' : '-';
+                        displayList.push({
+                            recordId: `VIRTUAL_${staffFilter}_${d}_${month}_${year}`,
+                            date: dateStr,
+                            timeIn: '-',
+                            timeOut: '-',
+                            staffId: staffFilter,
+                            name: staffName,
+                            status: defaultStatus,
+                            catatan: defaultCatatan,
+                            verified: 'Belum Disahkan',
+                            dayName: dayInfo.dayName,
+                            isWeekend: dayInfo.isWeekend,
+                            isVirtual: true
+                        });
                     }
                 }
-                return pass;
-            });
-            
-            filteredList.sort((a,b) => b.recordId.localeCompare(a.recordId));
-            
-            filteredList.forEach(record => {
+            } else {
+                // Sekiranya paparan "Semua Staf", papar semua rekod sedia ada dari Google Sheet
+                let filtered = appState.attendanceList.filter(record => {
+                    let pass = true;
+                    if (monthFilter) {
+                        const parts = record.date.split('/');
+                        if (parts.length > 1 && parts[1].padStart(2, '0') !== monthFilter) pass = false;
+                    }
+                    if (statusFilter) {
+                        if (statusFilter === 'Belum Disahkan') {
+                            if (record.verified !== 'Belum Disahkan') pass = false;
+                        } else {
+                            if (record.status !== statusFilter) pass = false;
+                        }
+                    }
+                    return pass;
+                });
+
+                displayList = filtered.map(r => {
+                    const dayInfo = getDayInfo(r.date);
+                    return {
+                        ...r,
+                        dayName: dayInfo.dayName,
+                        isWeekend: dayInfo.isWeekend,
+                        isVirtual: false
+                    };
+                });
+                displayList.sort((a,b) => b.recordId.localeCompare(a.recordId));
+            }
+
+            // Tapis status jika mod staf spesifik aktif
+            if (staffFilter && statusFilter) {
+                displayList = displayList.filter(r => {
+                    if (statusFilter === 'Belum Disahkan') return r.verified !== 'Disahkan';
+                    return r.status === statusFilter;
+                });
+            }
+
+            if (displayList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-light); padding: 20px;">Tiada rekod dijumpai untuk kriteria ini.</td></tr>';
+                return;
+            }
+
+            displayList.forEach(record => {
                 const tr = document.createElement('tr');
-                const badgeClass = record.verified === 'Disahkan' ? 'badge-success' : (record.verified === 'Selesai' ? 'badge-success' : 'badge-warning');
-                const actionBtn = `<span style="color:var(--text-light); font-size: 0.8rem;">Selesai</span>`;
+                if (record.isWeekend) tr.classList.add('tr-weekend');
+
+                let badgeClass = 'badge-warning';
+                if (record.verified === 'Disahkan') badgeClass = 'badge-success';
+                else if (record.status === 'Cuti Am') badgeClass = 'badge-holiday';
+                else if (record.isWeekend) badgeClass = 'badge-weekend';
+
+                const weekendTag = record.isWeekend ? `<span style="font-size:0.75rem; color:#b45309; font-weight:600;">(Hujung Minggu)</span>` : '';
+                
+                // Butang tindakan individu
+                let actionHtml = '';
+                if (record.verified !== 'Disahkan') {
+                    actionHtml += `<button class="btn btn-outline" style="padding: 3px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="verifySingle('${record.recordId}', '${record.date}', '${record.staffId}', '${record.name}')">Sahkan</button>`;
+                }
+                if (record.isWeekend || record.status !== 'Cuti Am') {
+                    actionHtml += `<button class="btn btn-secondary" style="padding: 3px 8px; font-size: 0.75rem;" onclick="markSingleHoliday('${record.recordId}', '${record.date}', '${record.staffId}', '${record.name}')">Cuti Am</button>`;
+                }
 
                 tr.innerHTML = `
-                    <td>${record.date}</td>
+                    <td class="checkbox-cell">
+                        <input type="checkbox" class="row-checkbox checkbox-custom" 
+                               data-record-id="${record.recordId}"
+                               data-date="${record.date}"
+                               data-staff-id="${record.staffId}"
+                               data-name="${record.name}"
+                               data-is-weekend="${record.isWeekend}"
+                               data-is-virtual="${record.isVirtual}"
+                               onchange="updateSelectedCount()">
+                    </td>
+                    <td><b>${record.date}</b> <span style="color:var(--text-light); font-size:0.85rem;">${record.dayName}</span> ${weekendTag}</td>
                     <td>${record.timeIn}</td>
                     <td>${record.timeOut}</td>
                     <td>${record.name}</td>
                     <td><b>${record.status}</b></td>
                     <td>${record.catatan || '-'}</td>
                     <td><span class="badge ${badgeClass}">${record.verified}</span></td>
-                    <td>${actionBtn}</td>
+                    <td>${actionHtml}</td>
                 `;
                 tbody.appendChild(tr);
             });
+        }
+
+        // ============================================
+        // FUNGSI CHECKBOX & TINDAKAN PUKAL (BATCH)
+        // ============================================
+        function toggleSelectAll(master) {
+            const checkboxes = document.querySelectorAll('.row-checkbox');
+            checkboxes.forEach(cb => cb.checked = master.checked);
+            updateSelectedCount();
+        }
+
+        function updateSelectedCount() {
+            const count = document.querySelectorAll('.row-checkbox:checked').length;
+            document.querySelectorAll('.selectedCount').forEach(el => el.innerText = count);
+        }
+
+        function selectWeekendRows() {
+            const checkboxes = document.querySelectorAll('.row-checkbox');
+            let selected = 0;
+            checkboxes.forEach(cb => {
+                if (cb.getAttribute('data-is-weekend') === 'true') {
+                    cb.checked = true;
+                    selected++;
+                }
+            });
+            updateSelectedCount();
+            showToast(`${selected} rekod hari Sabtu & Ahad telah dipilih.`);
+        }
+
+        async function verifySingle(recordId, date, staffId, name) {
+            showToast("Mengesahkan rekod...");
+            await processVerification([{
+                recordId, date, staffId, name,
+                status: 'Hadir',
+                verified: 'Disahkan',
+                catatan: 'Disahkan oleh Guru Besar'
+            }]);
+        }
+
+        async function markSingleHoliday(recordId, date, staffId, name) {
+            showToast("Menandakan sebagai Cuti Am...");
+            await processVerification([{
+                recordId, date, staffId, name,
+                status: 'Cuti Am',
+                verified: 'Disahkan',
+                catatan: 'Cuti Am / Hujung Minggu'
+            }]);
+        }
+
+        async function batchVerifySelected() {
+            const checkedBoxes = Array.from(document.querySelectorAll('.row-checkbox:checked'));
+            if (checkedBoxes.length === 0) {
+                showToast("Sila pilih sekurang-kurangnya satu rekod terlebih dahulu.");
+                return;
+            }
+
+            showToast(`Sedang mengesahkan ${checkedBoxes.length} rekod terpilih...`);
+            const items = checkedBoxes.map(cb => ({
+                recordId: cb.getAttribute('data-record-id'),
+                date: cb.getAttribute('data-date'),
+                staffId: cb.getAttribute('data-staff-id'),
+                name: cb.getAttribute('data-name'),
+                status: cb.getAttribute('data-is-weekend') === 'true' ? 'Cuti Am' : 'Hadir',
+                verified: 'Disahkan',
+                catatan: 'Disahkan Pukal oleh Guru Besar'
+            }));
+
+            await processVerification(items);
+        }
+
+        async function batchMarkHolidaySelected() {
+            const checkedBoxes = Array.from(document.querySelectorAll('.row-checkbox:checked'));
+            if (checkedBoxes.length === 0) {
+                showToast("Sila pilih rekod terlebih dahulu.");
+                return;
+            }
+
+            showToast(`Menandakan ${checkedBoxes.length} rekod sebagai Cuti Am...`);
+            const items = checkedBoxes.map(cb => ({
+                recordId: cb.getAttribute('data-record-id'),
+                date: cb.getAttribute('data-date'),
+                staffId: cb.getAttribute('data-staff-id'),
+                name: cb.getAttribute('data-name'),
+                status: 'Cuti Am',
+                verified: 'Disahkan',
+                catatan: 'Cuti Am'
+            }));
+
+            await processVerification(items);
+        }
+
+        // Simpan pengesahan ke pangkalan data Google Sheet
+        async function processVerification(items) {
+            for (const item of items) {
+                const isVirtual = String(item.recordId).startsWith('VIRTUAL_');
+                
+                // Kemas kini State UI tempatan serta-merta
+                const existingIdx = appState.attendanceList.findIndex(r => r.date === item.date && String(r.staffId).trim().toUpperCase() === String(item.staffId).trim().toUpperCase());
+                if (existingIdx > -1) {
+                    appState.attendanceList[existingIdx].verified = item.verified;
+                    appState.attendanceList[existingIdx].status = item.status;
+                    appState.attendanceList[existingIdx].catatan = item.catatan;
+                } else {
+                    appState.attendanceList.push({
+                        recordId: 'REC' + new Date().getTime() + Math.floor(Math.random()*100),
+                        date: item.date,
+                        timeIn: '-',
+                        timeOut: '-',
+                        staffId: item.staffId,
+                        name: item.name,
+                        status: item.status,
+                        verified: item.verified,
+                        catatan: item.catatan
+                    });
+                }
+
+                // Hantar ke Google Apps Script
+                if (WEB_APP_URL !== "") {
+                    try {
+                        if (isVirtual) {
+                            // Cipta rekod baharu di Sheet jika belum wujud
+                            await fetch(`${WEB_APP_URL}?action=manualAbsent`, {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                body: `action=manualAbsent&data=${JSON.stringify({
+                                    staffId: item.staffId,
+                                    name: item.name,
+                                    date: item.date,
+                                    catatan: item.catatan,
+                                    status: item.status
+                                })}`
+                            });
+                        } else {
+                            // Kemas kini rekod sedia ada
+                            await fetch(`${WEB_APP_URL}?action=verifyAttendance`, {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                body: `action=verifyAttendance&data=${JSON.stringify({
+                                    recordId: item.recordId,
+                                    catatan: item.catatan,
+                                    status: item.status
+                                })}`
+                            });
+                        }
+                    } catch (e) {
+                        console.error("Ralat simpan pengesahan", e);
+                    }
+                }
+            }
+
+            renderAdminAttendance();
+            updateDashboard();
+            showToast("Pengesahan kehadiran berjaya dikemas kini!");
         }
 
         // ==========================
@@ -940,7 +1256,9 @@
             const select = document.getElementById('absentStaffId');
             let options = '<option value="">-- Sila Pilih Kakitangan --</option>';
             appState.staffList.forEach(s => {
-                if(s.role !== 'Admin') options += `<option value="${s.id}">${s.name}</option>`;
+                if(String(s.role).trim().toLowerCase() !== 'admin') {
+                    options += `<option value="${String(s.id).trim()}">${s.name}</option>`;
+                }
             });
             select.innerHTML = options;
             
@@ -960,29 +1278,56 @@
 
         async function submitManualAbsent(e) {
             e.preventDefault();
-            const staffId = document.getElementById('absentStaffId').value;
+            const staffSelect = document.getElementById('absentStaffId');
+            const staffId = staffSelect ? staffSelect.value.trim() : '';
             const dateVal = document.getElementById('absentDate').value;
-            const catatan = document.getElementById('absentCatatan').value;
+            const catatan = document.getElementById('absentCatatan').value.trim();
             
             if(!staffId) {
                 showToast("Sila pilih kakitangan.");
                 return;
             }
 
-            const staff = appState.staffList.find(s => s.id === staffId);
+            // Padanan selamat tanpa mengira jenis data (nombor/teks) atau huruf besar/kecil
+            const staff = appState.staffList.find(s => String(s.id).trim().toUpperCase() === staffId.toUpperCase());
+            const selectedOptionText = staffSelect.selectedOptions && staffSelect.selectedOptions[0] ? staffSelect.selectedOptions[0].text : '';
+            const staffName = staff ? staff.name : (selectedOptionText || staffId);
             
             const parts = dateVal.split('-');
             const formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
 
             const payload = {
                 staffId: staffId,
-                name: staff.name,
+                name: staffName,
                 date: formattedDate,
                 catatan: catatan
             };
 
             showToast("Menyimpan rekod tidak hadir...");
             closeManualAbsentModal();
+
+            // Kemas kini data lokal dengan segera supaya UI responsif tanpa ralat
+            const existingIdx = appState.attendanceList.findIndex(r => r.date === formattedDate && String(r.staffId).trim().toUpperCase() === staffId.toUpperCase());
+            if (existingIdx > -1) {
+                appState.attendanceList[existingIdx].status = 'Tidak Hadir';
+                appState.attendanceList[existingIdx].verified = 'Disahkan';
+                appState.attendanceList[existingIdx].catatan = catatan;
+            } else {
+                appState.attendanceList.push({
+                    recordId: 'REC' + new Date().getTime(),
+                    date: formattedDate,
+                    timeIn: '-',
+                    timeOut: '-',
+                    staffId: staffId,
+                    name: staffName,
+                    status: 'Tidak Hadir',
+                    verified: 'Disahkan',
+                    catatan: catatan
+                });
+            }
+
+            renderAdminAttendance();
+            updateDashboard();
 
             if(WEB_APP_URL !== "") {
                  try {
