@@ -323,7 +323,6 @@
                 <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
                     <button class="btn btn-primary" onclick="clockIn()" style="font-size: 1.1rem; padding: 12px 25px;">Masuk</button>
                     <button class="btn btn-danger" onclick="clockOut()" style="font-size: 1.1rem; padding: 12px 25px;">Pulang</button>
-                    <button class="btn btn-secondary" onclick="markAbsent()" style="font-size: 1.1rem; padding: 12px 25px;">Tidak Hadir</button>
                 </div>
             </div>
 
@@ -334,8 +333,8 @@
                         <thead>
                             <tr>
                                 <th>Tarikh</th>
-                                <th>Masuk</th>
-                                <th>Pulang</th>
+                                <th>Masa Masuk</th>
+                                <th>Masa Pulang</th>
                                 <th>Status Kehadiran</th>
                                 <th>Catatan</th>
                                 <th>Pengesahan Admin</th>
@@ -385,7 +384,10 @@
 
             <!-- Tab: Pengesahan Kehadiran -->
             <div id="tab-kehadiran" class="card admin-tab-content hidden">
-                <h3>Kehadiran & Tertunggak</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                    <h3>Kehadiran & Tertunggak</h3>
+                    <button class="btn btn-danger" onclick="openManualAbsentModal()">+ Rekod Tidak Hadir</button>
+                </div>
                 
                 <div class="filter-section">
                     <select id="filterMonth" onchange="renderAdminAttendance()">
@@ -475,7 +477,6 @@
                 <div id="pdf-preview-container" style="margin-top: 30px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #fff;">
                     <div id="pdf-content">
                         <div style="text-align: center; margin-bottom: 20px;">
-                            <!-- Memastikan gambar menyokong cross-origin untuk PDF render -->
                             <img src="https://dl.dropboxusercontent.com/scl/fi/chme0asi352b51nrjhd4i/317845957_532158662259663_6216147697822491430_n.jpg?rlkey=scoefxuggb3bzjf2l1l7muvty&st=jfhwln85" alt="Logo Taska" style="max-height: 80px; border-radius: 50%; border: 2px solid #16a34a; margin-bottom: 10px;" crossorigin="anonymous">
                             <h2 style="color: #16a34a; margin-bottom: 5px;">TASKA AL FAYADH</h2>
                             <p style="margin: 0; font-weight: 600;">Laporan Kehadiran Kakitangan</p>
@@ -539,18 +540,25 @@
         </div>
     </div>
 
-    <!-- Modal Catatan (Tidak Hadir) -->
-    <div id="catatanModal" class="modal-overlay hidden">
+    <!-- Modal Catatan (Tidak Hadir Manual) -->
+    <div id="manualAbsentModal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3 style="margin-bottom: 15px;">Catatan Kehadiran</h3>
-            <form onsubmit="submitCatatan(event)">
-                <input type="hidden" id="verifyRecordId">
-                <label>Sebab / Catatan (Wajib jika tidak hadir):</label>
-                <input type="text" id="catatanInput" placeholder="Cth: Cuti Sakit (MC), Hal Peribadi..." required>
+            <h3 style="margin-bottom: 15px;">Tambah Rekod Tidak Hadir</h3>
+            <form onsubmit="submitManualAbsent(event)">
+                <label>Pilih Kakitangan:</label>
+                <select id="absentStaffId" required>
+                    <!-- Dipaparkan secara dinamik -->
+                </select>
+                
+                <label>Tarikh (Bulan/Hari/Tahun):</label>
+                <input type="date" id="absentDate" required>
+                
+                <label>Sebab / Catatan (Wajib):</label>
+                <input type="text" id="absentCatatan" placeholder="Cth: Cuti Sakit (MC), Hal Peribadi..." required>
                 
                 <div style="display: flex; gap: 10px; margin-top: 15px;">
-                    <button type="submit" class="btn btn-primary" style="flex: 1;">Sahkan</button>
-                    <button type="button" class="btn btn-outline" style="flex: 1;" onclick="closeCatatanModal()">Batal</button>
+                    <button type="submit" class="btn btn-danger" style="flex: 1;">Simpan</button>
+                    <button type="button" class="btn btn-outline" style="flex: 1;" onclick="closeManualAbsentModal()">Batal</button>
                 </div>
             </form>
         </div>
@@ -560,20 +568,14 @@
     <div id="toast" class="toast">Notifikasi Mesej</div>
 
     <script>
-        // Sila letakkan URL Google Apps Script Web App anda di bawah (Biar kosong jika simulasi)
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbygAjHwKBAIAxw5mOCuSV9KuEEXXyF6kCzQEuw9QIAKv3THzTvWCUzQcHFBtYU3SmrLcg/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx2YRwp2mGOUJLJ8xhv_uXVYJ7cBCDCM25DXtJ21r-pQ3hDY2WrxlMjhggFu8z_s3ZNpw/exec";
 
-        // State Aplikasi
         let appState = {
             currentUser: null,
-            staffList: [
-                { id: 'ADMIN', name: 'Guru Besar', role: 'Admin', pin: '1234' },
-                { id: 'S01', name: 'Siti Aminah', role: 'Staf Biasa', pin: '1111' }
-            ],
+            staffList: [],
             attendanceList: []
         };
 
-        // Jam Masa Nyata
         setInterval(updateClock, 1000);
         function updateClock() {
             const now = new Date();
@@ -587,7 +589,6 @@
             if(dateEl) dateEl.innerText = now.toLocaleDateString('ms-MY', dateOptions);
         }
 
-        // Paparkan Notifikasi
         function showToast(message) {
             const toast = document.getElementById('toast');
             toast.innerText = message;
@@ -600,8 +601,8 @@
             const id = document.getElementById('loginId').value.toUpperCase().trim();
             const pin = document.getElementById('loginPin').value.trim();
 
-            if (!appState.staffList || !Array.isArray(appState.staffList)) {
-                showToast("Ralat: Data masih dimuat turun. Sila tunggu.");
+            if (!appState.staffList || !Array.isArray(appState.staffList) || appState.staffList.length === 0) {
+                showToast("Data masih dimuat turun. Sila tunggu sebentar...");
                 return;
             }
 
@@ -616,7 +617,6 @@
                 if (user.role === 'Admin') {
                     document.getElementById('adminView').classList.remove('hidden');
                     refreshAdminData();
-                    // Reset to default tab
                     switchAdminTab('tab-dashboard');
                 } else {
                     document.getElementById('staffView').classList.remove('hidden');
@@ -636,8 +636,6 @@
             document.getElementById('logoutBtn').classList.add('hidden');
             
             document.getElementById('loginForm').reset();
-            
-            // Set Tab Dashboard kembali sebagai Tab pertama jika Admin logout
             switchAdminTab('tab-dashboard'); 
             
             showToast("Anda telah berjaya log keluar.");
@@ -646,7 +644,6 @@
         async function recordAttendanceToDB(type) {
             const user = appState.currentUser;
             const now = new Date();
-            // Format Tarikh "DD/MM/YYYY" standard untuk mengelakkan ralat susunan
             const dateStr = now.toLocaleDateString('ms-MY', { day: '2-digit', month: '2-digit', year: 'numeric' }); 
             const timeStr = now.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit', hour12: true });
             
@@ -667,38 +664,13 @@
                         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                         body: `action=recordAttendance&data=${JSON.stringify(payload)}`
                     });
-                    await loadAttendanceData(); // Muat semula pangkalan data setelah merekod
+                    await loadAttendanceData(); 
                 } catch (error) {
                     console.error("Ralat Sambungan GAS", error);
-                    // Mod Simulasi Tempatan (Fallback)
-                    simulateLocalAttendance(payload);
                 }
-            } else {
-                simulateLocalAttendance(payload);
             }
             
             showToast(`Rekod berjaya: ${type} pada ${timeStr}`);
-        }
-        
-        function simulateLocalAttendance(payload) {
-             let existing = appState.attendanceList.find(r => r.date === payload.date && r.staffId === payload.staffId);
-             if(existing) {
-                 if(payload.type === 'Keluar') existing.timeOut = payload.time;
-                 if(payload.type === 'Tidak Hadir') { existing.status = 'Tidak Hadir'; existing.verified = 'Belum Disahkan'; }
-             } else {
-                 appState.attendanceList.unshift({
-                     recordId: 'REC' + new Date().getTime(),
-                     date: payload.date,
-                     timeIn: payload.type === 'Masuk' ? payload.time : '-',
-                     timeOut: payload.type === 'Keluar' ? payload.time : '-',
-                     staffId: payload.staffId,
-                     name: payload.name,
-                     status: payload.type === 'Tidak Hadir' ? 'Tidak Hadir' : 'Hadir',
-                     verified: 'Belum Disahkan',
-                     catatan: '-'
-                 });
-             }
-             if(appState.currentUser.role !== 'Admin') renderMyAttendance();
         }
 
         async function loadAttendanceData() {
@@ -720,14 +692,13 @@
 
         function clockIn() { recordAttendanceToDB('Masuk'); }
         function clockOut() { recordAttendanceToDB('Keluar'); }
-        function markAbsent() { recordAttendanceToDB('Tidak Hadir'); }
 
         function renderMyAttendance() {
             const tbody = document.querySelector('#myAttendanceTable tbody');
             tbody.innerHTML = '';
             
             const myRecords = appState.attendanceList.filter(r => r.staffId === appState.currentUser.id);
-            myRecords.sort((a,b) => b.recordId.localeCompare(a.recordId)); // Terkini di atas
+            myRecords.sort((a,b) => b.recordId.localeCompare(a.recordId));
             
             if(myRecords.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Tiada rekod kehadiran dijumpai.</td></tr>';
@@ -736,7 +707,7 @@
 
             myRecords.forEach(record => {
                 const tr = document.createElement('tr');
-                const badgeClass = record.verified === 'Disahkan' ? 'badge-success' : 'badge-warning';
+                const badgeClass = record.verified === 'Disahkan' ? 'badge-success' : (record.verified === 'Selesai' ? 'badge-success' : 'badge-warning');
                 
                 tr.innerHTML = `
                     <td>${record.date}</td>
@@ -759,7 +730,6 @@
             if(tabElement) {
                 tabElement.classList.add('active');
             } else {
-                // Manual fallback tab activation for Dashboard
                 const tab = document.querySelector(`[onclick*="${tabId}"]`);
                 if(tab) tab.classList.add('active');
             }
@@ -827,7 +797,6 @@
             let filteredList = appState.attendanceList.filter(record => {
                 let pass = true;
                 if (monthFilter) {
-                    // Expecting DD/MM/YYYY or D/M/YYYY
                     const parts = record.date.split('/');
                     if (parts.length > 1) {
                         const recordMonth = parts[1].padStart(2, '0');
@@ -850,10 +819,8 @@
             
             filteredList.forEach(record => {
                 const tr = document.createElement('tr');
-                const badgeClass = record.verified === 'Disahkan' ? 'badge-success' : 'badge-warning';
-                const actionBtn = record.verified === 'Belum Disahkan' 
-                    ? `<button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="verifyRecord('${record.recordId}')">Sahkan</button>` 
-                    : `<span style="color:var(--text-light); font-size: 0.8rem;">Selesai</span>`;
+                const badgeClass = record.verified === 'Disahkan' ? 'badge-success' : (record.verified === 'Selesai' ? 'badge-success' : 'badge-warning');
+                const actionBtn = `<span style="color:var(--text-light); font-size: 0.8rem;">Selesai</span>`;
 
                 tr.innerHTML = `
                     <td>${record.date}</td>
@@ -869,50 +836,76 @@
             });
         }
 
-        function verifyRecord(recordId) {
-            const record = appState.attendanceList.find(r => r.recordId === recordId);
-            if (record && record.status === 'Tidak Hadir') {
-                document.getElementById('verifyRecordId').value = recordId;
-                document.getElementById('catatanInput').value = '';
-                document.getElementById('catatanModal').classList.remove('hidden');
-            } else {
-                processVerification(recordId, '-');
-            }
+        // ==========================
+        // FUNGSI MANUAL ABSENT (ADMIN)
+        // ==========================
+        function openManualAbsentModal() {
+            const select = document.getElementById('absentStaffId');
+            let options = '<option value="">-- Sila Pilih Kakitangan --</option>';
+            appState.staffList.forEach(s => {
+                if(s.role !== 'Admin') options += `<option value="${s.id}">${s.name}</option>`;
+            });
+            select.innerHTML = options;
+            
+            // Set default date to today for HTML5 date input (YYYY-MM-DD)
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            document.getElementById('absentDate').value = `${yyyy}-${mm}-${dd}`;
+            
+            document.getElementById('absentCatatan').value = '';
+            document.getElementById('manualAbsentModal').classList.remove('hidden');
         }
 
-        function closeCatatanModal() {
-            document.getElementById('catatanModal').classList.add('hidden');
+        function closeManualAbsentModal() {
+            document.getElementById('manualAbsentModal').classList.add('hidden');
         }
 
-        function submitCatatan(e) {
+        async function submitManualAbsent(e) {
             e.preventDefault();
-            const recordId = document.getElementById('verifyRecordId').value;
-            const catatan = document.getElementById('catatanInput').value;
-            processVerification(recordId, catatan);
-            closeCatatanModal();
-        }
+            const staffId = document.getElementById('absentStaffId').value;
+            const dateVal = document.getElementById('absentDate').value;
+            const catatan = document.getElementById('absentCatatan').value;
+            
+            if(!staffId) {
+                showToast("Sila pilih kakitangan.");
+                return;
+            }
 
-        async function processVerification(recordId, catatan) {
+            const staff = appState.staffList.find(s => s.id === staffId);
+            
+            // Tukar format tarikh dari YYYY-MM-DD ke DD/MM/YYYY (Format Pangkalan Data Kita)
+            const parts = dateVal.split('-');
+            const formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+
+            const payload = {
+                staffId: staffId,
+                name: staff.name,
+                date: formattedDate,
+                catatan: catatan
+            };
+
+            showToast("Menyimpan rekod tidak hadir...");
+            closeManualAbsentModal();
+
             if(WEB_APP_URL !== "") {
                  try {
-                    await fetch(`${WEB_APP_URL}?action=verifyAttendance`, {
+                    await fetch(`${WEB_APP_URL}?action=manualAbsent`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                        body: `action=verifyAttendance&data=${JSON.stringify({recordId: recordId, catatan: catatan})}`
+                        body: `action=manualAbsent&data=${JSON.stringify(payload)}`
                     });
-                 } catch (e) { console.log(e); }
+                    await loadAttendanceData(); 
+                 } catch (err) { console.log(err); }
             }
             
-            // Kemas kini State Tempatan
-            const record = appState.attendanceList.find(r => r.recordId === recordId);
-            if(record) {
-                record.verified = 'Disahkan';
-                record.catatan = catatan;
-            }
-            refreshAdminData();
-            showToast("Kehadiran berjaya disahkan.");
+            showToast("Rekod Tidak Hadir berjaya ditambah.");
         }
 
+        // ==========================
+        // FUNGSI STAF (ADMIN)
+        // ==========================
         function renderAdminStaff() {
             const tbody = document.querySelector('#staffTable tbody');
             tbody.innerHTML = '';
@@ -1028,7 +1021,7 @@
                 filteredList = filteredList.filter(r => r.staffId === staffFilter);
             }
             
-            filteredList.sort((a,b) => a.recordId.localeCompare(b.recordId)); // Susun lama ke baru (A-Z)
+            filteredList.sort((a,b) => a.recordId.localeCompare(b.recordId));
 
             filteredList.forEach(record => {
                 const tr = document.createElement('tr');
@@ -1053,21 +1046,18 @@
                 margin:       [0.5, 0.5, 0.5, 0.5],
                 filename:     'Laporan_Kehadiran_Taska_Al_Fayadh.pdf',
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true }, // useCORS penting untuk render logo Dropbox
+                html2canvas:  { scale: 2, useCORS: true },
                 jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
             };
 
-            // Guna html2pdf untuk muat turun dokumen PDF
             html2pdf().set(opt).from(element).save();
         }
 
-        // Muat data awal sebaik sahaja page dibuka
         window.onload = async function() {
             if(WEB_APP_URL !== "") {
                 try {
-                    showToast("Menyambung ke pangkalan data...");
+                    showToast("Sedang menyambung ke pangkalan data...");
                     
-                    // Muat Staf
                     const staffRes = await fetch(`${WEB_APP_URL}`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -1078,7 +1068,6 @@
                         appState.staffList = staffData.data;
                     }
 
-                    // Muat Kehadiran
                     const attRes = await fetch(`${WEB_APP_URL}`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -1091,11 +1080,8 @@
                     
                     showToast("Sistem sedia digunakan!");
                 } catch(error) {
-                    console.log("Gagal menyambung ke pangkalan data Google Sheets.", error);
-                    showToast("Mod simulasi digunakan (Tiada sambungan DB).");
+                    console.log("Gagal menyambung ke pangkalan data", error);
                 }
-            } else {
-                showToast("Sistem sedia (Mod Offline).");
             }
         };
 
