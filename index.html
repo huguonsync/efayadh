@@ -319,10 +319,21 @@
             opacity: 1;
         }
 
-        /* Khusus Untuk PDF Export */
+        /* Khusus Untuk PDF Export (Tepat 1 Halaman A4) */
         #pdf-content {
             background: white;
-            padding: 30px;
+            padding: 0;
+            margin: 0 auto;
+        }
+
+        .pdf-staff-sheet {
+            width: 100%;
+            max-width: 730px;
+            margin: 0 auto;
+            box-sizing: border-box;
+            background: #ffffff;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
         }
         
         @media (max-width: 600px) {
@@ -533,6 +544,23 @@
                 <p style="color: var(--text-light); margin-bottom: 15px;">Cetak laporan kehadiran kakitangan untuk fail sekolah.</p>
                 
                 <div class="filter-section">
+                    <div class="filter-item">
+                        <label for="reportMonthFilter">Pilih Bulan:</label>
+                        <select id="reportMonthFilter" onchange="renderPDFTable()">
+                            <option value="01">Januari</option>
+                            <option value="02">Februari</option>
+                            <option value="03">Mac</option>
+                            <option value="04">April</option>
+                            <option value="05">Mei</option>
+                            <option value="06">Jun</option>
+                            <option value="07">Julai</option>
+                            <option value="08">Ogos</option>
+                            <option value="09">September</option>
+                            <option value="10" selected>Oktober</option>
+                            <option value="11">November</option>
+                            <option value="12">Disember</option>
+                        </select>
+                    </div>
                     <div class="filter-item" style="flex: 2;">
                         <label for="reportStaffFilter">Tapis Mengikut Kakitangan:</label>
                         <select id="reportStaffFilter" onchange="renderPDFTable()">
@@ -547,34 +575,7 @@
                 <!-- Preview Laporan (Sembunyi dari pandangan biasa, diguna untuk PDF render) -->
                 <div id="pdf-preview-container" style="margin-top: 30px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #fff;">
                     <div id="pdf-content">
-                        <div style="text-align: center; margin-bottom: 20px;">
-                            <img src="https://dl.dropboxusercontent.com/scl/fi/chme0asi352b51nrjhd4i/317845957_532158662259663_6216147697822491430_n.jpg?rlkey=scoefxuggb3bzjf2l1l7muvty&st=jfhwln85" alt="Logo Taska" style="max-height: 80px; border-radius: 50%; border: 2px solid #16a34a; margin-bottom: 10px;" crossorigin="anonymous">
-                            <h2 style="color: #16a34a; margin-bottom: 5px;">TASKA AL FAYADH</h2>
-                            <p style="margin: 0; font-weight: 600;">Laporan Kehadiran Kakitangan</p>
-                            <p id="pdf-date" style="font-size: 0.85rem; color: #666; margin-top: 5px;"></p>
-                        </div>
-                        <table id="pdfTable" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
-                            <thead>
-                                <tr style="background: #f3f4f6;">
-                                    <th style="border: 1px solid #ccc; padding: 8px;">Tarikh</th>
-                                    <th style="border: 1px solid #ccc; padding: 8px; text-align: center;">Masuk</th>
-                                    <th style="border: 1px solid #ccc; padding: 8px; text-align: center;">Pulang</th>
-                                    <th style="border: 1px solid #ccc; padding: 8px;">Nama Kakitangan</th>
-                                    <th style="border: 1px solid #ccc; padding: 8px; text-align: center;">Status</th>
-                                    <th style="border: 1px solid #ccc; padding: 8px;">Catatan</th>
-                                    <th style="border: 1px solid #ccc; padding: 8px; text-align: center;">Pengesahan</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Data Laporan -->
-                            </tbody>
-                        </table>
-                        <div style="margin-top: 40px; text-align: right; font-size: 0.9rem;">
-                            <p>Disahkan Oleh,</p>
-                            <br><br><br>
-                            <p>__________________________</p>
-                            <p>Guru Besar Taska Al Fayadh</p>
-                        </div>
+                        <!-- Kandungan Laporan dijana secara dinamik oleh renderPDFTable() -->
                     </div>
                 </div>
             </div>
@@ -941,6 +942,30 @@
             };
         }
 
+        // Fungsi pembantu untuk menentukan status sebenar berdasarkan masa masuk & pulang
+        function determineStatusFromRecord(rec) {
+            const hasTimeIn = rec.timeIn && rec.timeIn !== '-' && String(rec.timeIn).trim() !== '';
+            const hasTimeOut = rec.timeOut && rec.timeOut !== '-' && String(rec.timeOut).trim() !== '';
+
+            // Jika staf mempunyai rekod masa masuk atau waktu pulang
+            if (hasTimeIn || hasTimeOut) {
+                return 'Hadir';
+            }
+
+            // Jika rekod sudah ditandakan sebagai Cuti Am
+            if (rec.status === 'Cuti Am') {
+                return 'Cuti Am';
+            }
+
+            // Jika hari tersebut adalah Sabtu atau Ahad tanpa rekod
+            if (rec.isWeekend) {
+                return 'Cuti Am';
+            }
+
+            // Jika hari bekerja biasa dan tiada masa masuk/pulang
+            return 'Tidak Hadir';
+        }
+
         function renderAdminAttendance() {
             const tbody = document.querySelector('#allAttendanceTable tbody');
             tbody.innerHTML = '';
@@ -962,7 +987,7 @@
                 const staffName = staffObj ? staffObj.name : 'Staf';
                 const year = 2026;
                 const month = monthFilter ? parseInt(monthFilter, 10) : 10;
-                const totalDays = new Date(year, month, 0).getDate(); // Jumlah hari dalam bulan (contoh: 31 hari Oktober)
+                const totalDays = new Date(year, month, 0).getDate();
                 
                 const staffRecords = appState.attendanceList.filter(r => String(r.staffId).trim().toUpperCase() === String(staffFilter).trim().toUpperCase());
 
@@ -1010,7 +1035,7 @@
                     }
                 }
             } else {
-                // Sekiranya paparan "Semua Staf", papar semua rekod sedia ada dari Google Sheet
+                // Papar rekod sedia ada dari Google Sheet jika mod Semua Staf
                 let filtered = appState.attendanceList.filter(record => {
                     let pass = true;
                     if (monthFilter) {
@@ -1047,6 +1072,9 @@
                 });
             }
 
+            // Simpan senarai terkini untuk rujukan fungsi pengesahan
+            appState.adminDisplayList = displayList;
+
             if (displayList.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-light); padding: 20px;">Tiada rekod dijumpai untuk kriteria ini.</td></tr>';
                 return;
@@ -1063,13 +1091,21 @@
 
                 const weekendTag = record.isWeekend ? `<span style="font-size:0.75rem; color:#b45309; font-weight:600;">(Hujung Minggu)</span>` : '';
                 
+                // Pewarnaan teks status mengikut kategori
+                let statusColor = 'color: #374151;';
+                if (record.status === 'Hadir') statusColor = 'color: #15803d; font-weight: 700;';
+                else if (record.status === 'Tidak Hadir') statusColor = 'color: #b91c1c; font-weight: 700;';
+                else if (record.status === 'Cuti Am') statusColor = 'color: #0369a1; font-weight: 600;';
+                else if (record.status === 'Tiada Rekod') statusColor = 'color: #dc2626; font-style: italic;';
+                else if (record.status === 'Hujung Minggu') statusColor = 'color: #854d0e; font-style: italic;';
+
                 // Butang tindakan individu
                 let actionHtml = '';
                 if (record.verified !== 'Disahkan') {
-                    actionHtml += `<button class="btn btn-outline" style="padding: 3px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="verifySingle('${record.recordId}', '${record.date}', '${record.staffId}', '${record.name}')">Sahkan</button>`;
+                    actionHtml += `<button class="btn btn-outline" style="padding: 3px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="verifySingle('${record.recordId}')">Sahkan</button>`;
                 }
-                if (record.isWeekend || record.status !== 'Cuti Am') {
-                    actionHtml += `<button class="btn btn-secondary" style="padding: 3px 8px; font-size: 0.75rem;" onclick="markSingleHoliday('${record.recordId}', '${record.date}', '${record.staffId}', '${record.name}')">Cuti Am</button>`;
+                if (record.status !== 'Cuti Am') {
+                    actionHtml += `<button class="btn btn-secondary" style="padding: 3px 8px; font-size: 0.75rem;" onclick="markSingleHoliday('${record.recordId}')">Cuti Am</button>`;
                 }
 
                 tr.innerHTML = `
@@ -1079,6 +1115,10 @@
                                data-date="${record.date}"
                                data-staff-id="${record.staffId}"
                                data-name="${record.name}"
+                               data-time-in="${record.timeIn}"
+                               data-time-out="${record.timeOut}"
+                               data-status="${record.status}"
+                               data-catatan="${record.catatan || '-'}"
                                data-is-weekend="${record.isWeekend}"
                                data-is-virtual="${record.isVirtual}"
                                onchange="updateSelectedCount()">
@@ -1087,7 +1127,7 @@
                     <td>${record.timeIn}</td>
                     <td>${record.timeOut}</td>
                     <td>${record.name}</td>
-                    <td><b>${record.status}</b></td>
+                    <td style="${statusColor}">${record.status}</td>
                     <td>${record.catatan || '-'}</td>
                     <td><span class="badge ${badgeClass}">${record.verified}</span></td>
                     <td>${actionHtml}</td>
@@ -1123,20 +1163,53 @@
             showToast(`${selected} rekod hari Sabtu & Ahad telah dipilih.`);
         }
 
-        async function verifySingle(recordId, date, staffId, name) {
+        async function verifySingle(recordId) {
             showToast("Mengesahkan rekod...");
+            let rec = appState.adminDisplayList ? appState.adminDisplayList.find(r => r.recordId === recordId) : null;
+            if (!rec) {
+                rec = appState.attendanceList.find(r => r.recordId === recordId);
+            }
+            if (!rec) return;
+
+            // Tentukan Hadir atau Tidak Hadir secara automatik berdasarkan waktu masuk/pulang
+            const determinedStatus = determineStatusFromRecord(rec);
+            
+            // Kekalkan catatan sedia ada (seperti MC / cuti) jika ada
+            let finalCatatan = rec.catatan && rec.catatan !== '-' ? rec.catatan : '';
+            if (!finalCatatan) {
+                if (determinedStatus === 'Hadir') finalCatatan = 'Hadir bertugas';
+                else if (determinedStatus === 'Cuti Am') finalCatatan = 'Cuti Am / Hujung Minggu';
+                else finalCatatan = 'Tidak Hadir (Tiada rekod)';
+            }
+
             await processVerification([{
-                recordId, date, staffId, name,
-                status: 'Hadir',
+                recordId: rec.recordId,
+                date: rec.date,
+                staffId: rec.staffId,
+                name: rec.name,
+                timeIn: rec.timeIn || '-',
+                timeOut: rec.timeOut || '-',
+                status: determinedStatus,
                 verified: 'Disahkan',
-                catatan: 'Disahkan oleh Guru Besar'
+                catatan: finalCatatan
             }]);
         }
 
-        async function markSingleHoliday(recordId, date, staffId, name) {
+        async function markSingleHoliday(recordId) {
             showToast("Menandakan sebagai Cuti Am...");
+            let rec = appState.adminDisplayList ? appState.adminDisplayList.find(r => r.recordId === recordId) : null;
+            if (!rec) {
+                rec = appState.attendanceList.find(r => r.recordId === recordId);
+            }
+            if (!rec) return;
+
             await processVerification([{
-                recordId, date, staffId, name,
+                recordId: rec.recordId,
+                date: rec.date,
+                staffId: rec.staffId,
+                name: rec.name,
+                timeIn: rec.timeIn || '-',
+                timeOut: rec.timeOut || '-',
                 status: 'Cuti Am',
                 verified: 'Disahkan',
                 catatan: 'Cuti Am / Hujung Minggu'
@@ -1151,15 +1224,44 @@
             }
 
             showToast(`Sedang mengesahkan ${checkedBoxes.length} rekod terpilih...`);
-            const items = checkedBoxes.map(cb => ({
-                recordId: cb.getAttribute('data-record-id'),
-                date: cb.getAttribute('data-date'),
-                staffId: cb.getAttribute('data-staff-id'),
-                name: cb.getAttribute('data-name'),
-                status: cb.getAttribute('data-is-weekend') === 'true' ? 'Cuti Am' : 'Hadir',
-                verified: 'Disahkan',
-                catatan: 'Disahkan Pukal oleh Guru Besar'
-            }));
+            const items = checkedBoxes.map(cb => {
+                const recordId = cb.getAttribute('data-record-id');
+                let rec = appState.adminDisplayList ? appState.adminDisplayList.find(r => r.recordId === recordId) : null;
+
+                if (!rec) {
+                    rec = {
+                        recordId: recordId,
+                        date: cb.getAttribute('data-date'),
+                        staffId: cb.getAttribute('data-staff-id'),
+                        name: cb.getAttribute('data-name'),
+                        timeIn: cb.getAttribute('data-time-in'),
+                        timeOut: cb.getAttribute('data-time-out'),
+                        status: cb.getAttribute('data-status'),
+                        catatan: cb.getAttribute('data-catatan'),
+                        isWeekend: cb.getAttribute('data-is-weekend') === 'true'
+                    };
+                }
+
+                const determinedStatus = determineStatusFromRecord(rec);
+                let finalCatatan = rec.catatan && rec.catatan !== '-' ? rec.catatan : '';
+                if (!finalCatatan) {
+                    if (determinedStatus === 'Hadir') finalCatatan = 'Hadir bertugas';
+                    else if (determinedStatus === 'Cuti Am') finalCatatan = 'Cuti Am / Hujung Minggu';
+                    else finalCatatan = 'Tidak Hadir (Tiada rekod)';
+                }
+
+                return {
+                    recordId: rec.recordId,
+                    date: rec.date,
+                    staffId: rec.staffId,
+                    name: rec.name,
+                    timeIn: rec.timeIn || '-',
+                    timeOut: rec.timeOut || '-',
+                    status: determinedStatus,
+                    verified: 'Disahkan',
+                    catatan: finalCatatan
+                };
+            });
 
             await processVerification(items);
         }
@@ -1172,15 +1274,21 @@
             }
 
             showToast(`Menandakan ${checkedBoxes.length} rekod sebagai Cuti Am...`);
-            const items = checkedBoxes.map(cb => ({
-                recordId: cb.getAttribute('data-record-id'),
-                date: cb.getAttribute('data-date'),
-                staffId: cb.getAttribute('data-staff-id'),
-                name: cb.getAttribute('data-name'),
-                status: 'Cuti Am',
-                verified: 'Disahkan',
-                catatan: 'Cuti Am'
-            }));
+            const items = checkedBoxes.map(cb => {
+                const recordId = cb.getAttribute('data-record-id');
+                let rec = appState.adminDisplayList ? appState.adminDisplayList.find(r => r.recordId === recordId) : null;
+                return {
+                    recordId: recordId,
+                    date: cb.getAttribute('data-date'),
+                    staffId: cb.getAttribute('data-staff-id'),
+                    name: cb.getAttribute('data-name'),
+                    timeIn: rec ? rec.timeIn : '-',
+                    timeOut: rec ? rec.timeOut : '-',
+                    status: 'Cuti Am',
+                    verified: 'Disahkan',
+                    catatan: 'Cuti Am'
+                };
+            });
 
             await processVerification(items);
         }
@@ -1195,18 +1303,20 @@
                 if (existingIdx > -1) {
                     appState.attendanceList[existingIdx].verified = item.verified;
                     appState.attendanceList[existingIdx].status = item.status;
-                    appState.attendanceList[existingIdx].catatan = item.catatan;
+                    if (item.catatan) {
+                        appState.attendanceList[existingIdx].catatan = item.catatan;
+                    }
                 } else {
                     appState.attendanceList.push({
                         recordId: 'REC' + new Date().getTime() + Math.floor(Math.random()*100),
                         date: item.date,
-                        timeIn: '-',
-                        timeOut: '-',
+                        timeIn: item.timeIn || '-',
+                        timeOut: item.timeOut || '-',
                         staffId: item.staffId,
                         name: item.name,
                         status: item.status,
                         verified: item.verified,
-                        catatan: item.catatan
+                        catatan: item.catatan || '-'
                     });
                 }
 
@@ -1448,83 +1558,188 @@
         }
 
         function renderPDFTable() {
-            const tbody = document.querySelector('#pdfTable tbody');
-            tbody.innerHTML = '';
+            const container = document.getElementById('pdf-content');
+            if (!container) return;
+            container.innerHTML = '';
             
-            const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-            document.getElementById('pdf-date').innerText = "Tarikh Cetakan: " + new Date().toLocaleDateString('ms-MY', dateOptions);
+            const monthVal = document.getElementById('reportMonthFilter') ? document.getElementById('reportMonthFilter').value : '10';
+            const staffFilter = document.getElementById('reportStaffFilter') ? document.getElementById('reportStaffFilter').value : '';
+            
+            const monthNames = {
+                '01': 'Januari', '02': 'Februari', '03': 'Mac', '04': 'April',
+                '05': 'Mei', '06': 'Jun', '07': 'Julai', '08': 'Ogos',
+                '09': 'September', '10': 'Oktober', '11': 'November', '12': 'Disember'
+            };
 
-            const staffFilter = document.getElementById('reportStaffFilter').value;
-            let displayList = [];
-            
+            const year = 2026;
+            const monthInt = parseInt(monthVal, 10);
+            const totalDays = new Date(year, monthInt, 0).getDate();
+            const datePrintStr = new Date().toLocaleDateString('ms-MY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+            // Tentukan senarai staf yang terlibat
+            let targetStaffList = [];
             if (staffFilter) {
-                // Jika Guru Besar pilih Staf tertentu, jana kalendar dari 1 Okt 2026
-                const specificStaffRecords = appState.attendanceList.filter(r => String(r.staffId).trim() === String(staffFilter).trim());
-                
-                // Cari info staf dengan lebih selamat (convert to String & trim)
-                const staffInfo = appState.staffList.find(s => String(s.id).trim() === String(staffFilter).trim());
-                const staffName = staffInfo ? staffInfo.name : "Kakitangan Tidak Diketahui";
-                
-                const startDate = new Date(2026, 9, 1); // 1 Okt 2026
-                const today = new Date();
-                let currentDate = new Date(startDate); 
-                
-                // Pusingan maju (Lama ke Baru) untuk bacaan PDF yang cantik
-                while(currentDate <= today) {
-                    const dd = String(currentDate.getDate()).padStart(2, '0');
-                    const mm = String(currentDate.getMonth() + 1).padStart(2, '0');
-                    const yyyy = currentDate.getFullYear();
-                    const dateStr = `${dd}/${mm}/${yyyy}`;
-                    
-                    const existingRecord = specificStaffRecords.find(r => r.date === dateStr);
-                    
-                    if (existingRecord) {
-                        displayList.push(existingRecord);
-                    } else {
-                        displayList.push({
-                            date: dateStr,
-                            timeIn: '-',
-                            timeOut: '-',
-                            name: staffName,
-                            status: 'Tiada Rekod',
-                            catatan: '-',
-                            verified: '-'
-                        });
-                    }
-                    currentDate.setDate(currentDate.getDate() + 1);
-                }
+                const found = appState.staffList.find(s => String(s.id).trim().toUpperCase() === String(staffFilter).trim().toUpperCase());
+                if (found) targetStaffList.push(found);
             } else {
-                // Jika "Semua Staf", tunjuk data sebenar dari database sahaja
-                displayList = [...appState.attendanceList];
-                displayList.sort((a,b) => a.recordId.localeCompare(b.recordId)); 
+                targetStaffList = appState.staffList.filter(s => String(s.role).trim().toLowerCase() !== 'admin');
             }
 
-            displayList.forEach(record => {
-                const tr = document.createElement('tr');
-                const statusStyle = record.status === 'Tiada Rekod' ? 'color: red;' : 'font-weight: 600;';
-                tr.innerHTML = `
-                    <td style="border: 1px solid #ccc; padding: 8px; text-align: center;">${record.date}</td>
-                    <td style="border: 1px solid #ccc; padding: 8px; text-align: center;">${record.timeIn}</td>
-                    <td style="border: 1px solid #ccc; padding: 8px; text-align: center;">${record.timeOut}</td>
-                    <td style="border: 1px solid #ccc; padding: 8px;">${record.name}</td>
-                    <td style="border: 1px solid #ccc; padding: 8px; text-align: center; ${statusStyle}">${record.status}</td>
-                    <td style="border: 1px solid #ccc; padding: 8px;">${record.catatan || '-'}</td>
-                    <td style="border: 1px solid #ccc; padding: 8px; text-align: center;">${record.verified}</td>
+            if (targetStaffList.length === 0) {
+                container.innerHTML = '<p style="text-align:center; padding: 30px; color:#6b7280;">Tiada kakitangan dijumpai untuk dijana.</p>';
+                return;
+            }
+
+            // Bina laporan 30/31 hari bagi setiap staf
+            targetStaffList.forEach((staff, staffIndex) => {
+                let hadirCount = 0;
+                let tidakHadirCount = 0;
+                let cutiCount = 0;
+
+                const staffRecords = appState.attendanceList.filter(r => String(r.staffId).trim().toUpperCase() === String(staff.id).trim().toUpperCase());
+                let rowsHtml = '';
+
+                for (let d = 1; d <= totalDays; d++) {
+                    const dd = String(d).padStart(2, '0');
+                    const mm = String(monthInt).padStart(2, '0');
+                    const dateStr = `${dd}/${mm}/${year}`;
+                    const dayInfo = getDayInfo(dateStr);
+
+                    const existing = staffRecords.find(r => r.date === dateStr);
+
+                    let timeIn = '-';
+                    let timeOut = '-';
+                    let status = '';
+                    let catatan = '-';
+                    let verified = 'Belum Disahkan';
+
+                    if (existing) {
+                        timeIn = existing.timeIn || '-';
+                        timeOut = existing.timeOut || '-';
+                        status = existing.status;
+                        catatan = existing.catatan && existing.catatan !== '-' ? existing.catatan : '-';
+                        verified = existing.verified || 'Belum Disahkan';
+                        
+                        if (!status || status === 'Tiada Rekod') {
+                            status = determineStatusFromRecord({ ...existing, isWeekend: dayInfo.isWeekend });
+                        }
+                    } else {
+                        if (dayInfo.isWeekend) {
+                            status = 'Cuti Am';
+                            catatan = 'Cuti Hujung Minggu';
+                            verified = 'Disahkan';
+                        } else {
+                            status = 'Tidak Hadir';
+                            catatan = 'Tiada Rekod';
+                            verified = 'Belum Disahkan';
+                        }
+                    }
+
+                    if (status === 'Hadir') hadirCount++;
+                    else if (status === 'Tidak Hadir') tidakHadirCount++;
+                    else cutiCount++;
+
+                    let statusColor = 'color: #374151;';
+                    if (status === 'Hadir') statusColor = 'color: #15803d; font-weight: 700;';
+                    else if (status === 'Tidak Hadir') statusColor = 'color: #b91c1c; font-weight: 700;';
+                    else if (status === 'Cuti Am') statusColor = 'color: #0369a1; font-weight: 600;';
+
+                    const rowBg = dayInfo.isWeekend ? 'background-color: #fafafa;' : '';
+
+                    rowsHtml += `
+                        <tr style="${rowBg} border-bottom: 1px solid #e5e7eb;">
+                            <td style="border: 1px solid #cbd5e1; padding: 1.5px 2px; text-align: center; font-size: 8.5px; white-space: nowrap;">${d}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 1.5px 4px; font-size: 8.5px; white-space: nowrap;"><b>${dateStr}</b> <span style="color:#6b7280; font-size: 8px;">(${dayInfo.dayName})</span></td>
+                            <td style="border: 1px solid #cbd5e1; padding: 1.5px 2px; text-align: center; font-size: 8.5px; white-space: nowrap;">${timeIn}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 1.5px 2px; text-align: center; font-size: 8.5px; white-space: nowrap;">${timeOut}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 1.5px 2px; text-align: center; font-size: 8.5px; white-space: nowrap; ${statusColor}">${status}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 1.5px 4px; font-size: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px;">${catatan}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 1.5px 2px; text-align: center; font-size: 8px; white-space: nowrap;">${verified}</td>
+                        </tr>
+                    `;
+                }
+
+                const pageBreakStyle = (staffIndex < targetStaffList.length - 1) ? 'page-break-after: always; break-after: page;' : '';
+
+                const staffReportHtml = `
+                    <div class="pdf-staff-sheet" style="${pageBreakStyle} padding: 6px 12px; box-sizing: border-box; page-break-inside: avoid !important;">
+                        <!-- Kepala Surat Rasmi (Letterhead Padat) -->
+                        <div style="text-align: center; margin-bottom: 6px; border-bottom: 2px solid #16a34a; padding-bottom: 4px;">
+                            <img src="https://dl.dropboxusercontent.com/scl/fi/chme0asi352b51nrjhd4i/317845957_532158662259663_6216147697822491430_n.jpg?rlkey=scoefxuggb3bzjf2l1l7muvty&st=jfhwln85" alt="Logo Taska" style="max-height: 40px; border-radius: 50%; border: 1.5px solid #16a34a; margin-bottom: 2px;" crossorigin="anonymous">
+                            <h2 style="color: #16a34a; margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; line-height: 1.15;">TASKA AL FAYADH</h2>
+                            <p style="margin: 1px 0 0; font-weight: 700; font-size: 9.5px; color: #374151; line-height: 1.15;">PENYATA REKOD KEHADIRAN BULANAN KAKITANGAN</p>
+                            <p style="margin: 0; font-size: 8px; color: #6b7280; line-height: 1.15;">Bulan: <b>${monthNames[monthVal]} ${year}</b> | Tarikh Cetakan: ${datePrintStr}</p>
+                        </div>
+
+                        <!-- Maklumat Staf & Ringkasan -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 8px;">
+                            <div>
+                                <span style="font-size: 9.5px; color:#1f2937;">Nama Kakitangan: <b style="font-size: 10px;">${staff.name}</b></span>
+                                <span style="font-size: 8.5px; color: #4b5563; margin-left: 10px;">ID: <b>${staff.id}</b> | Jawatan: <b>${staff.role}</b></span>
+                            </div>
+                            <div style="text-align: right; font-size: 8px;">
+                                <span style="display: inline-block; background: #dcfce7; color: #15803d; padding: 1px 5px; border-radius: 3px; font-weight: 600; margin-left: 2px;">Hadir: ${hadirCount}</span>
+                                <span style="display: inline-block; background: #fee2e2; color: #b91c1c; padding: 1px 5px; border-radius: 3px; font-weight: 600; margin-left: 2px;">Tidak Hadir: ${tidakHadirCount}</span>
+                                <span style="display: inline-block; background: #e0f2fe; color: #0369a1; padding: 1px 5px; border-radius: 3px; font-weight: 600; margin-left: 2px;">Cuti: ${cutiCount}</span>
+                            </div>
+                        </div>
+
+                        <!-- Jadual Kehadiran Penuh 30/31 Hari (Satu Page Fit) -->
+                        <table style="width: 100%; border-collapse: collapse; font-size: 8.5px; line-height: 1.15; table-layout: fixed; margin-bottom: 6px;">
+                            <thead>
+                                <tr style="background: #f1f5f9; color: #374151;">
+                                    <th style="border: 1px solid #cbd5e1; padding: 2px 2px; text-align: center; width: 26px;">Bil</th>
+                                    <th style="border: 1px solid #cbd5e1; padding: 2px 4px; text-align: left; width: 135px;">Tarikh & Hari</th>
+                                    <th style="border: 1px solid #cbd5e1; padding: 2px 2px; text-align: center; width: 55px;">Masuk</th>
+                                    <th style="border: 1px solid #cbd5e1; padding: 2px 2px; text-align: center; width: 55px;">Pulang</th>
+                                    <th style="border: 1px solid #cbd5e1; padding: 2px 2px; text-align: center; width: 75px;">Status</th>
+                                    <th style="border: 1px solid #cbd5e1; padding: 2px 4px; text-align: left;">Catatan</th>
+                                    <th style="border: 1px solid #cbd5e1; padding: 2px 2px; text-align: center; width: 80px;">Pengesahan</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rowsHtml}
+                            </tbody>
+                        </table>
+
+                        <!-- Ruangan Tandatangan -->
+                        <div style="margin-top: 6px; display: flex; justify-content: space-between; font-size: 8.5px; padding: 0 30px;">
+                            <div style="text-align: center;">
+                                <p style="margin: 0;">Tandatangan Kakitangan,</p>
+                                <div style="height: 24px;"></div>
+                                <p style="margin: 0;">__________________________</p>
+                                <p style="margin: 1px 0 0;"><b>(${staff.name})</b></p>
+                            </div>
+                            <div style="text-align: center;">
+                                <p style="margin: 0;">Disahkan Oleh,</p>
+                                <div style="height: 24px;"></div>
+                                <p style="margin: 0;">__________________________</p>
+                                <p style="margin: 1px 0 0;"><b>Guru Besar Taska Al Fayadh</b></p>
+                            </div>
+                        </div>
+                    </div>
                 `;
-                tbody.appendChild(tr);
+
+                container.innerHTML += staffReportHtml;
             });
         }
 
         function generatePDF() {
             showToast("Menjana Laporan PDF...");
             const element = document.getElementById('pdf-content');
+            const monthVal = document.getElementById('reportMonthFilter') ? document.getElementById('reportMonthFilter').value : '10';
+            const staffFilter = document.getElementById('reportStaffFilter') ? document.getElementById('reportStaffFilter').value : '';
+            
+            const staffObj = appState.staffList.find(s => String(s.id).trim().toUpperCase() === String(staffFilter).trim().toUpperCase());
+            const labelStaff = staffObj ? staffObj.name.replace(/\s+/g, '_') : 'Semua_Staf';
             
             const opt = {
-                margin:       [0.5, 0.5, 0.5, 0.5],
-                filename:     'Laporan_Kehadiran_Taska_Al_Fayadh.pdf',
+                margin:       [0.2, 0.2, 0.2, 0.2],
+                filename:     `Laporan_Kehadiran_${labelStaff}_Bulan_${monthVal}_2026.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true },
-                jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+                html2canvas:  { scale: 2, useCORS: true, logging: false, scrollY: 0 },
+                jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' },
+                pagebreak:    { mode: ['css', 'legacy'] }
             };
 
             html2pdf().set(opt).from(element).save();
