@@ -722,40 +722,85 @@
             tbody.innerHTML = '';
             
             const myRecords = appState.attendanceList.filter(r => r.staffId === appState.currentUser.id);
-            myRecords.sort((a,b) => b.recordId.localeCompare(a.recordId));
             
-            if(myRecords.length === 0) {
+            // Tarikh mula sistem ditetapkan pada 1 Oktober 2026
+            const startDate = new Date(2026, 9, 1); // Bulan ke-9 adalah Oktober (0-indexed)
+            const today = new Date();
+            
+            let currentDate = new Date(today);
+            let displayData = [];
+
+            // Pusingan (Loop) mengundur dari hari ini hingga 1 Oktober 2026
+            while(currentDate >= startDate) {
+                // Format tarikh manual supaya tepat DD/MM/YYYY
+                const dd = String(currentDate.getDate()).padStart(2, '0');
+                const mm = String(currentDate.getMonth() + 1).padStart(2, '0');
+                const yyyy = currentDate.getFullYear();
+                const dateStr = `${dd}/${mm}/${yyyy}`;
+                
+                const existingRecord = myRecords.find(r => r.date === dateStr);
+                
+                if (existingRecord) {
+                    displayData.push(existingRecord);
+                } else {
+                    // Cipta rekod maya (virtual) untuk hari yang tiada data
+                    displayData.push({
+                        date: dateStr,
+                        timeIn: '-',
+                        timeOut: '-',
+                        status: 'Tiada Rekod',
+                        catatan: '-',
+                        verified: '-'
+                    });
+                }
+                currentDate.setDate(currentDate.getDate() - 1);
+            }
+
+            if(displayData.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Tiada rekod kehadiran dijumpai.</td></tr>';
                 return;
             }
 
-            myRecords.forEach(record => {
+            displayData.forEach(record => {
                 const tr = document.createElement('tr');
-                const badgeClass = record.verified === 'Disahkan' ? 'badge-success' : (record.verified === 'Selesai' ? 'badge-success' : 'badge-warning');
+                let badgeClass = 'badge-warning';
+                if (record.verified === 'Disahkan') badgeClass = 'badge-success';
+                else if (record.verified === '-') badgeClass = ''; 
                 
+                const badgeHtml = record.verified !== '-' ? `<span class="badge ${badgeClass}">${record.verified}</span>` : `<span style="color:#999; font-size:0.8rem;">-</span>`;
+                const statusStyle = record.status === 'Tiada Rekod' ? 'color: var(--danger); font-style: italic;' : 'font-weight: bold;';
+
                 tr.innerHTML = `
                     <td>${record.date}</td>
                     <td>${record.timeIn}</td>
                     <td>${record.timeOut}</td>
-                    <td><b>${record.status}</b></td>
+                    <td style="${statusStyle}">${record.status}</td>
                     <td>${record.catatan || '-'}</td>
-                    <td><span class="badge ${badgeClass}">${record.verified}</span></td>
+                    <td>${badgeHtml}</td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
-        function switchAdminTab(tabId, tabElement = null) {
-            document.querySelectorAll('.admin-tab-content').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+        function switchAdminTab(tabId, element) {
+            // Sembunyikan semua tab
+            const contents = document.querySelectorAll('.admin-tab-content');
+            contents.forEach(c => c.classList.add('hidden'));
             
-            document.getElementById(tabId).classList.remove('hidden');
+            // Buang highlight dari semua butang tab
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(t => t.classList.remove('active'));
             
-            if(tabElement) {
-                tabElement.classList.add('active');
+            // Paparkan tab yang dipilih
+            const selectedTab = document.getElementById(tabId);
+            if(selectedTab) selectedTab.classList.remove('hidden');
+            
+            // Highlight butang tab yang ditekan
+            if (element) {
+                element.classList.add('active');
             } else {
-                const tab = document.querySelector(`[onclick*="${tabId}"]`);
-                if(tab) tab.classList.add('active');
+                const activeTab = document.querySelector(`.tab[onclick*="${tabId}"]`);
+                if(activeTab) activeTab.classList.add('active');
             }
         }
 
@@ -766,23 +811,46 @@
             renderPDFTable();
             updateDashboard();
         }
-        
+
         function populateStaffDropdowns() {
             const filterStaff = document.getElementById('filterStaff');
             const reportStaffFilter = document.getElementById('reportStaffFilter');
-            const currentFilter = filterStaff.value;
-            const currentReportFilter = reportStaffFilter.value;
+            
+            // Simpan pilihan sedia ada
+            const currentFilter = filterStaff ? filterStaff.value : '';
+            const currentReportFilter = reportStaffFilter ? reportStaffFilter.value : '';
             
             let options = '<option value="">-- Semua Staf --</option>';
             appState.staffList.forEach(s => {
                 if(s.role !== 'Admin') options += `<option value="${s.id}">${s.name}</option>`;
             });
             
-            filterStaff.innerHTML = options;
-            reportStaffFilter.innerHTML = options;
+            if (filterStaff) {
+                filterStaff.innerHTML = options;
+                filterStaff.value = currentFilter;
+            }
+            if (reportStaffFilter) {
+                reportStaffFilter.innerHTML = options;
+                reportStaffFilter.value = currentReportFilter;
+            }
+        }
+
+        async function verifyRecord(recordId) {
+            const catatan = prompt("Sila masukkan catatan untuk pengesahan (Cth: MC, Cuti, dsb) atau biarkan kosong:");
+            if (catatan === null) return; // Batal
             
-            filterStaff.value = currentFilter;
-            reportStaffFilter.value = currentReportFilter;
+            showToast("Mengesahkan rekod...");
+            if(WEB_APP_URL !== "") {
+                try {
+                    await fetch(`${WEB_APP_URL}?action=verifyAttendance`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: `action=verifyAttendance&data=${JSON.stringify({recordId: recordId, catatan: catatan})}`
+                    });
+                    await loadAttendanceData(); 
+                } catch(err) { console.log(err); }
+            }
+            showToast("Rekod berjaya disahkan.");
         }
 
         function updateDashboard() {
@@ -1042,23 +1110,59 @@
             document.getElementById('pdf-date').innerText = "Tarikh Cetakan: " + new Date().toLocaleDateString('ms-MY', dateOptions);
 
             const staffFilter = document.getElementById('reportStaffFilter').value;
-            let filteredList = appState.attendanceList;
+            let displayList = [];
             
             if (staffFilter) {
-                // Pembaikan perbandingan ID untuk PDF
-                filteredList = filteredList.filter(r => String(r.staffId).trim().toUpperCase() === String(staffFilter).trim().toUpperCase());
+                // Jika Guru Besar pilih Staf tertentu, jana kalendar dari 1 Okt 2026
+                const specificStaffRecords = appState.attendanceList.filter(r => String(r.staffId).trim() === String(staffFilter).trim());
+                
+                // Cari info staf dengan lebih selamat (convert to String & trim)
+                const staffInfo = appState.staffList.find(s => String(s.id).trim() === String(staffFilter).trim());
+                const staffName = staffInfo ? staffInfo.name : "Kakitangan Tidak Diketahui";
+                
+                const startDate = new Date(2026, 9, 1); // 1 Okt 2026
+                const today = new Date();
+                let currentDate = new Date(startDate); 
+                
+                // Pusingan maju (Lama ke Baru) untuk bacaan PDF yang cantik
+                while(currentDate <= today) {
+                    const dd = String(currentDate.getDate()).padStart(2, '0');
+                    const mm = String(currentDate.getMonth() + 1).padStart(2, '0');
+                    const yyyy = currentDate.getFullYear();
+                    const dateStr = `${dd}/${mm}/${yyyy}`;
+                    
+                    const existingRecord = specificStaffRecords.find(r => r.date === dateStr);
+                    
+                    if (existingRecord) {
+                        displayList.push(existingRecord);
+                    } else {
+                        displayList.push({
+                            date: dateStr,
+                            timeIn: '-',
+                            timeOut: '-',
+                            name: staffName,
+                            status: 'Tiada Rekod',
+                            catatan: '-',
+                            verified: '-'
+                        });
+                    }
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+            } else {
+                // Jika "Semua Staf", tunjuk data sebenar dari database sahaja
+                displayList = [...appState.attendanceList];
+                displayList.sort((a,b) => a.recordId.localeCompare(b.recordId)); 
             }
-            
-            filteredList.sort((a,b) => a.recordId.localeCompare(b.recordId));
 
-            filteredList.forEach(record => {
+            displayList.forEach(record => {
                 const tr = document.createElement('tr');
+                const statusStyle = record.status === 'Tiada Rekod' ? 'color: red;' : 'font-weight: 600;';
                 tr.innerHTML = `
                     <td style="border: 1px solid #ccc; padding: 8px; text-align: center;">${record.date}</td>
                     <td style="border: 1px solid #ccc; padding: 8px; text-align: center;">${record.timeIn}</td>
                     <td style="border: 1px solid #ccc; padding: 8px; text-align: center;">${record.timeOut}</td>
                     <td style="border: 1px solid #ccc; padding: 8px;">${record.name}</td>
-                    <td style="border: 1px solid #ccc; padding: 8px; text-align: center; font-weight: 600;">${record.status}</td>
+                    <td style="border: 1px solid #ccc; padding: 8px; text-align: center; ${statusStyle}">${record.status}</td>
                     <td style="border: 1px solid #ccc; padding: 8px;">${record.catatan || '-'}</td>
                     <td style="border: 1px solid #ccc; padding: 8px; text-align: center;">${record.verified}</td>
                 `;
