@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Kehadiran Taska Al Fayadh</title>
+    <!-- html2pdf for generating PDF Reports -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4ade80; /* Warna Hijau Taska */
+            --primary-dark: #16a34a;
+            --secondary: #60a5fa; /* Biru Muda */
+            --accent: #fbbf24; /* Kuning Ceria */
+            --background: #f0fdf4;
+            --surface: #ffffff;
+            --text-main: #1f2937;
+            --text-light: #6b7280;
+            --danger: #ef4444;
+            --border: #e5e7eb;
+            --radius: 12px;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background-color: var(--background);
+            color: var(--text-main);
+            line-height: 1.6;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 20px;
+            flex: 1;
+        }
+
+        header {
+            background-color: var(--surface);
+            padding: 20px;
+            text-align: center;
+            box-shadow: var(--shadow);
+            border-bottom: 4px solid var(--primary);
+            position: relative;
+        }
+
+        header h1 {
+            color: var(--primary-dark);
+            font-weight: 700;
+        }
+
+        .logo-img {
+            max-height: 90px;
+            width: auto;
+            margin-bottom: 10px;
+            border-radius: 50%;
+            box-shadow: var(--shadow);
+            border: 3px solid var(--primary);
+        }
+        
+        .subtitle {
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+
+        .card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            border: none;
+            border-radius: var(--radius);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            font-size: 1rem;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); transform: scale(1.02); }
+        
+        .btn-secondary { background: var(--secondary); color: white; }
+        .btn-secondary:hover { background: #3b82f6; transform: scale(1.02); }
+        
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { background: #dc2626; transform: scale(1.02); }
+        
+        .btn-outline { background: transparent; border: 2px solid var(--primary); color: var(--primary-dark); }
+        .btn-outline:hover { background: var(--primary); color: white; }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0 16px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background-color: #f9fafb;
+            font-weight: 600;
+            color: var(--text-light);
+        }
+
+        tr:hover {
+            background-color: #f3f4f6;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .badge-success { background: #d1fae5; color: #065f46; }
+        .badge-warning { background: #fef3c7; color: #92400e; }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .tab {
+            padding: 10px 20px;
+            background: #e5e7eb;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-light);
+            transition: all 0.3s;
+        }
+        .tab.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 2px 4px rgba(74, 222, 128, 0.4);
+        }
+
+        /* Dashboard Cards */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: var(--surface);
+            padding: 20px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border-left: 5px solid var(--primary);
+            text-align: center;
+        }
+        .stat-card h3 { font-size: 2.5rem; color: var(--text-main); margin: 10px 0; }
+        .stat-card p { color: var(--text-light); font-size: 0.9rem; font-weight: 600; }
+
+        /* Filter Section */
+        .filter-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .filter-section select {
+            width: auto;
+            flex: 1;
+            min-width: 150px;
+            margin: 0;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: var(--surface);
+            padding: 24px;
+            border-radius: var(--radius);
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        #clock {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary-dark);
+            text-align: center;
+            margin: 10px 0;
+            letter-spacing: 2px;
+        }
+
+        .logout-btn {
+            position: absolute;
+            right: 20px;
+            top: 25px;
+            padding: 6px 12px;
+            font-size: 0.85rem;
+        }
+
+        /* Notifikasi */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--text-main);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            z-index: 9999;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease-out;
+        }
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* Khusus Untuk PDF Export */
+        #pdf-content {
+            background: white;
+            padding: 30px;
+        }
+        
+        @media (max-width: 600px) {
+            .btn { width: 100%; margin-bottom: 10px; }
+            .tabs { flex-direction: column; }
+            .filter-section select { width: 100%; }
+            #clock { font-size: 2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <img src="https://dl.dropboxusercontent.com/scl/fi/chme0asi352b51nrjhd4i/317845957_532158662259663_6216147697822491430_n.jpg?rlkey=scoefxuggb3bzjf2l1l7muvty&st=jfhwln85" alt="Logo Taska Al Fayadh" class="logo-img">
+        <h1>Taska Al Fayadh</h1>
+        <div class="subtitle">Sistem Kehadiran Pintar</div>
+        <button id="logoutBtn" class="btn btn-outline logout-btn hidden" onclick="logout()">Log Keluar</button>
+    </header>
+
+    <div class="container">
+        <!-- BAHAGIAN 1: LOG MASUK -->
+        <div id="loginView" class="card" style="max-width: 400px; margin: 40px auto;">
+            <h2 style="text-align: center; margin-bottom: 20px;">Log Masuk</h2>
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <label for="loginId">ID Staf / Admin:</label>
+                <input type="text" id="loginId" placeholder="Masukkan ID (Contoh: S01 atau ADMIN)" required autocomplete="off">
+                
+                <label for="loginPin">PIN Keselamatan:</label>
+                <input type="password" id="loginPin" placeholder="Masukkan PIN" required autocomplete="off">
+                
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Log Masuk</button>
+            </form>
+        </div>
+
+        <!-- BAHAGIAN 2: PAPAN PEMUKA STAF -->
+        <div id="staffView" class="hidden">
+            <div class="card" style="text-align: center;">
+                <h2>Selamat Datang, <span id="staffNameDisplay" style="color: var(--primary-dark);"></span>!</h2>
+                <div id="clock">00:00:00</div>
+                <div id="dateDisplay" style="color: var(--text-light); margin-bottom: 20px;"></div>
+                
+                <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                    <button class="btn btn-primary" onclick="clockIn()" style="font-size: 1.1rem; padding: 12px 25px;">Masuk</button>
+                    <button class="btn btn-danger" onclick="clockOut()" style="font-size: 1.1rem; padding: 12px 25px;">Pulang</button>
+                    <button class="btn btn-secondary" onclick="markAbsent()" style="font-size: 1.1rem; padding: 12px 25px;">Tidak Hadir</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Sejarah Kehadiran Saya</h3>
+                <div style="overflow-x: auto;">
+                    <table id="myAttendanceTable">
+                        <thead>
+                            <tr>
+                                <th>Tarikh</th>
+                                <th>Masuk</th>
+                                <th>Pulang</th>
+                                <th>Status Kehadiran</th>
+                                <th>Catatan</th>
+                                <th>Pengesahan Admin</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Data dipaparkan secara dinamik -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- BAHAGIAN 3: PAPAN PEMUKA ADMIN -->
+        <div id="adminView" class="hidden">
+            <h2 style="margin-bottom: 20px;">Panel Guru Besar</h2>
+            
+            <div class="tabs">
+                <div class="tab active" onclick="switchAdminTab('tab-dashboard', this)">Dashboard</div>
+                <div class="tab" onclick="switchAdminTab('tab-kehadiran', this)">Pengesahan Kehadiran</div>
+                <div class="tab" onclick="switchAdminTab('tab-staf', this)">Pengurusan Kakitangan</div>
+                <div class="tab" onclick="switchAdminTab('tab-laporan', this)">Jana Laporan PDF</div>
+            </div>
+
+            <!-- Tab: Dashboard Analisis -->
+            <div id="tab-dashboard" class="card admin-tab-content">
+                <h3>Analisis Kehadiran Hari Ini</h3>
+                <div class="dashboard-grid">
+                    <div class="stat-card" style="border-left-color: var(--secondary);">
+                        <p>Jumlah Staf</p>
+                        <h3 id="statTotalStaff">0</h3>
+                    </div>
+                    <div class="stat-card" style="border-left-color: var(--primary);">
+                        <p>Hadir</p>
+                        <h3 id="statHadir">0</h3>
+                    </div>
+                    <div class="stat-card" style="border-left-color: var(--danger);">
+                        <p>Tidak Hadir</p>
+                        <h3 id="statTidakHadir">0</h3>
+                    </div>
+                    <div class="stat-card" style="border-left-color: var(--accent);">
+                        <p>Belum Hadir</p>
+                        <h3 id="statBelum">0</h3>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Pengesahan Kehadiran -->
+            <div id="tab-kehadiran" class="card admin-tab-content hidden">
+                <h3>Kehadiran & Tertunggak</h3>
+                
+                <div class="filter-section">
+                    <select id="filterMonth" onchange="renderAdminAttendance()">
+                        <option value="">-- Semua Bulan --</option>
+                        <option value="01">Januari</option>
+                        <option value="02">Februari</option>
+                        <option value="03">Mac</option>
+                        <option value="04">April</option>
+                        <option value="05">Mei</option>
+                        <option value="06">Jun</option>
+                        <option value="07">Julai</option>
+                        <option value="08">Ogos</option>
+                        <option value="09">September</option>
+                        <option value="10">Oktober</option>
+                        <option value="11">November</option>
+                        <option value="12">Disember</option>
+                    </select>
+                    <select id="filterStaff" onchange="renderAdminAttendance()">
+                        <option value="">-- Semua Staf --</option>
+                    </select>
+                    <select id="filterStatus" onchange="renderAdminAttendance()">
+                        <option value="">-- Semua Status --</option>
+                        <option value="Hadir">Hadir</option>
+                        <option value="Tidak Hadir">Tidak Hadir</option>
+                        <option value="Belum Disahkan">Tindakan Diperlukan</option>
+                    </select>
+                </div>
+
+                <div style="overflow-x: auto;">
+                    <table id="allAttendanceTable">
+                        <thead>
+                            <tr>
+                                <th>Tarikh</th>
+                                <th>Masuk</th>
+                                <th>Pulang</th>
+                                <th>Nama Kakitangan</th>
+                                <th>Status</th>
+                                <th>Catatan</th>
+                                <th>Pengesahan</th>
+                                <th>Tindakan</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Data dipaparkan secara dinamik -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab: Pengurusan Kakitangan -->
+            <div id="tab-staf" class="card admin-tab-content hidden">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                    <h3>Senarai Kakitangan</h3>
+                    <button class="btn btn-secondary" onclick="openStaffModal()">+ Tambah Kakitangan</button>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table id="staffTable">
+                        <thead>
+                            <tr>
+                                <th>ID Staf</th>
+                                <th>Nama Penuh</th>
+                                <th>Peranan</th>
+                                <th>PIN Akses</th>
+                                <th>Tindakan</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Data dipaparkan secara dinamik -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab: Laporan -->
+            <div id="tab-laporan" class="card admin-tab-content hidden">
+                <h3>Jana Laporan PDF</h3>
+                <p style="color: var(--text-light); margin-bottom: 15px;">Cetak laporan kehadiran kakitangan untuk fail sekolah.</p>
+                
+                <div class="filter-section">
+                    <select id="reportStaffFilter" onchange="renderPDFTable()">
+                        <option value="">-- Semua Staf --</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="generatePDF()">Muat Turun Laporan PDF</button>
+                </div>
+                
+                <!-- Preview Laporan (Sembunyi dari pandangan biasa, diguna untuk PDF render) -->
+                <div id="pdf-preview-container" style="margin-top: 30px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #fff;">
+                    <div id="pdf-content">
+                        <div style="text-align: center; margin-bottom: 20px;">
+                            <!-- Memastikan gambar menyokong cross-origin untuk PDF render -->
+                            <img src="https://dl.dropboxusercontent.com/scl/fi/chme0asi352b51nrjhd4i/317845957_532158662259663_6216147697822491430_n.jpg?rlkey=scoefxuggb3bzjf2l1l7muvty&st=jfhwln85" alt="Logo Taska" style="max-height: 80px; border-radius: 50%; border: 2px solid #16a34a; margin-bottom: 10px;" crossorigin="anonymous">
+                            <h2 style="color: #16a34a; margin-bottom: 5px;">TASKA AL FAYADH</h2>
+                            <p style="margin: 0; font-weight: 600;">Laporan Kehadiran Kakitangan</p>
+                            <p id="pdf-date" style="font-size: 0.85rem; color: #666; margin-top: 5px;"></p>
+                        </div>
+                        <table id="pdfTable" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                            <thead>
+                                <tr style="background: #f3f4f6;">
+                                    <th style="border: 1px solid #ccc; padding: 8px;">Tarikh</th>
+                                    <th style="border: 1px solid #ccc; padding: 8px; text-align: center;">Masuk</th>
+                                    <th style="border: 1px solid #ccc; padding: 8px; text-align: center;">Pulang</th>
+                                    <th style="border: 1px solid #ccc; padding: 8px;">Nama Kakitangan</th>
+                                    <th style="border: 1px solid #ccc; padding: 8px; text-align: center;">Status</th>
+                                    <th style="border: 1px solid #ccc; padding: 8px;">Catatan</th>
+                                    <th style="border: 1px solid #ccc; padding: 8px; text-align: center;">Pengesahan</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Data Laporan -->
+                            </tbody>
+                        </table>
+                        <div style="margin-top: 40px; text-align: right; font-size: 0.9rem;">
+                            <p>Disahkan Oleh,</p>
+                            <br><br><br>
+                            <p>__________________________</p>
+                            <p>Guru Besar Taska Al Fayadh</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Tambah/Edit Staf -->
+    <div id="staffModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 id="modalTitle" style="margin-bottom: 15px;">Tambah Kakitangan</h3>
+            <form id="staffForm" onsubmit="saveStaff(event)">
+                <input type="hidden" id="isEdit" value="false">
+                
+                <label>ID Kakitangan:</label>
+                <input type="text" id="staffId" placeholder="Cth: S02" required>
+                
+                <label>Nama Penuh:</label>
+                <input type="text" id="staffName" placeholder="Nama..." required>
+                
+                <label>Peranan:</label>
+                <select id="staffRole" required>
+                    <option value="Staf Biasa">Staf Biasa</option>
+                    <option value="Admin">Admin (Guru Besar)</option>
+                </select>
+                
+                <label>PIN Akses:</label>
+                <input type="text" id="staffPin" placeholder="4 Digit PIN" required>
+                
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Simpan</button>
+                    <button type="button" class="btn btn-outline" style="flex: 1;" onclick="closeStaffModal()">Batal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Catatan (Tidak Hadir) -->
+    <div id="catatanModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 15px;">Catatan Kehadiran</h3>
+            <form onsubmit="submitCatatan(event)">
+                <input type="hidden" id="verifyRecordId">
+                <label>Sebab / Catatan (Wajib jika tidak hadir):</label>
+                <input type="text" id="catatanInput" placeholder="Cth: Cuti Sakit (MC), Hal Peribadi..." required>
+                
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Sahkan</button>
+                    <button type="button" class="btn btn-outline" style="flex: 1;" onclick="closeCatatanModal()">Batal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">Notifikasi Mesej</div>
+
+    <script>
+        // Sila letakkan URL Google Apps Script Web App anda di bawah (Biar kosong jika simulasi)
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbygAjHwKBAIAxw5mOCuSV9KuEEXXyF6kCzQEuw9QIAKv3THzTvWCUzQcHFBtYU3SmrLcg/exec";
+
+        // State Aplikasi
+        let appState = {
+            currentUser: null,
+            staffList: [
+                { id: 'ADMIN', name: 'Guru Besar', role: 'Admin', pin: '1234' },
+                { id: 'S01', name: 'Siti Aminah', role: 'Staf Biasa', pin: '1111' }
+            ],
+            attendanceList: []
+        };
+
+        // Jam Masa Nyata
+        setInterval(updateClock, 1000);
+        function updateClock() {
+            const now = new Date();
+            const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
+            const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            
+            const clockEl = document.getElementById('clock');
+            const dateEl = document.getElementById('dateDisplay');
+            
+            if(clockEl) clockEl.innerText = now.toLocaleTimeString('ms-MY', timeOptions);
+            if(dateEl) dateEl.innerText = now.toLocaleDateString('ms-MY', dateOptions);
+        }
+
+        // Paparkan Notifikasi
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.innerText = message;
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, 3000);
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const id = document.getElementById('loginId').value.toUpperCase().trim();
+            const pin = document.getElementById('loginPin').value.trim();
+
+            if (!appState.staffList || !Array.isArray(appState.staffList)) {
+                showToast("Ralat: Data masih dimuat turun. Sila tunggu.");
+                return;
+            }
+
+            const user = appState.staffList.find(s => String(s.id).trim().toUpperCase() === id && String(s.pin).trim() === pin);
+            
+            if (user) {
+                appState.currentUser = user;
+                showToast(`Selamat datang, ${user.name}`);
+                document.getElementById('loginView').classList.add('hidden');
+                document.getElementById('logoutBtn').classList.remove('hidden');
+                
+                if (user.role === 'Admin') {
+                    document.getElementById('adminView').classList.remove('hidden');
+                    refreshAdminData();
+                    // Reset to default tab
+                    switchAdminTab('tab-dashboard');
+                } else {
+                    document.getElementById('staffView').classList.remove('hidden');
+                    document.getElementById('staffNameDisplay').innerText = user.name;
+                    renderMyAttendance();
+                }
+            } else {
+                showToast("Ralat: ID atau PIN tidak sah.");
+            }
+        }
+
+        function logout() {
+            appState.currentUser = null;
+            document.getElementById('loginView').classList.remove('hidden');
+            document.getElementById('staffView').classList.add('hidden');
+            document.getElementById('adminView').classList.add('hidden');
+            document.getElementById('logoutBtn').classList.add('hidden');
+            
+            document.getElementById('loginForm').reset();
+            
+            // Set Tab Dashboard kembali sebagai Tab pertama jika Admin logout
+            switchAdminTab('tab-dashboard'); 
+            
+            showToast("Anda telah berjaya log keluar.");
+        }
+
+        async function recordAttendanceToDB(type) {
+            const user = appState.currentUser;
+            const now = new Date();
+            // Format Tarikh "DD/MM/YYYY" standard untuk mengelakkan ralat susunan
+            const dateStr = now.toLocaleDateString('ms-MY', { day: '2-digit', month: '2-digit', year: 'numeric' }); 
+            const timeStr = now.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit', hour12: true });
+            
+            const payload = {
+                date: dateStr,
+                time: timeStr,
+                staffId: user.id,
+                name: user.name,
+                type: type
+            };
+
+            showToast("Sedang menyimpan rekod...");
+
+            if (WEB_APP_URL !== "") {
+                try {
+                    await fetch(`${WEB_APP_URL}?action=recordAttendance`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: `action=recordAttendance&data=${JSON.stringify(payload)}`
+                    });
+                    await loadAttendanceData(); // Muat semula pangkalan data setelah merekod
+                } catch (error) {
+                    console.error("Ralat Sambungan GAS", error);
+                    // Mod Simulasi Tempatan (Fallback)
+                    simulateLocalAttendance(payload);
+                }
+            } else {
+                simulateLocalAttendance(payload);
+            }
+            
+            showToast(`Rekod berjaya: ${type} pada ${timeStr}`);
+        }
+        
+        function simulateLocalAttendance(payload) {
+             let existing = appState.attendanceList.find(r => r.date === payload.date && r.staffId === payload.staffId);
+             if(existing) {
+                 if(payload.type === 'Keluar') existing.timeOut = payload.time;
+                 if(payload.type === 'Tidak Hadir') { existing.status = 'Tidak Hadir'; existing.verified = 'Belum Disahkan'; }
+             } else {
+                 appState.attendanceList.unshift({
+                     recordId: 'REC' + new Date().getTime(),
+                     date: payload.date,
+                     timeIn: payload.type === 'Masuk' ? payload.time : '-',
+                     timeOut: payload.type === 'Keluar' ? payload.time : '-',
+                     staffId: payload.staffId,
+                     name: payload.name,
+                     status: payload.type === 'Tidak Hadir' ? 'Tidak Hadir' : 'Hadir',
+                     verified: 'Belum Disahkan',
+                     catatan: '-'
+                 });
+             }
+             if(appState.currentUser.role !== 'Admin') renderMyAttendance();
+        }
+
+        async function loadAttendanceData() {
+            if(WEB_APP_URL === "") return;
+            try {
+                const attRes = await fetch(`${WEB_APP_URL}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: 'action=getAttendance'
+                });
+                const attData = await attRes.json();
+                if(attData.status === 'success' && attData.data) {
+                    appState.attendanceList = attData.data;
+                    if(appState.currentUser && appState.currentUser.role === 'Admin') refreshAdminData();
+                    if(appState.currentUser && appState.currentUser.role !== 'Admin') renderMyAttendance();
+                }
+            } catch (e) { console.log(e); }
+        }
+
+        function clockIn() { recordAttendanceToDB('Masuk'); }
+        function clockOut() { recordAttendanceToDB('Keluar'); }
+        function markAbsent() { recordAttendanceToDB('Tidak Hadir'); }
+
+        function renderMyAttendance() {
+            const tbody = document.querySelector('#myAttendanceTable tbody');
+            tbody.innerHTML = '';
+            
+            const myRecords = appState.attendanceList.filter(r => r.staffId === appState.currentUser.id);
+            myRecords.sort((a,b) => b.recordId.localeCompare(a.recordId)); // Terkini di atas
+            
+            if(myRecords.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Tiada rekod kehadiran dijumpai.</td></tr>';
+                return;
+            }
+
+            myRecords.forEach(record => {
+                const tr = document.createElement('tr');
+                const badgeClass = record.verified === 'Disahkan' ? 'badge-success' : 'badge-warning';
+                
+                tr.innerHTML = `
+                    <td>${record.date}</td>
+                    <td>${record.timeIn}</td>
+                    <td>${record.timeOut}</td>
+                    <td><b>${record.status}</b></td>
+                    <td>${record.catatan || '-'}</td>
+                    <td><span class="badge ${badgeClass}">${record.verified}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function switchAdminTab(tabId, tabElement = null) {
+            document.querySelectorAll('.admin-tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(tabId).classList.remove('hidden');
+            
+            if(tabElement) {
+                tabElement.classList.add('active');
+            } else {
+                // Manual fallback tab activation for Dashboard
+                const tab = document.querySelector(`[onclick*="${tabId}"]`);
+                if(tab) tab.classList.add('active');
+            }
+        }
+
+        function refreshAdminData() {
+            populateStaffDropdowns();
+            renderAdminAttendance();
+            renderAdminStaff();
+            renderPDFTable();
+            updateDashboard();
+        }
+        
+        function populateStaffDropdowns() {
+            const filterStaff = document.getElementById('filterStaff');
+            const reportStaffFilter = document.getElementById('reportStaffFilter');
+            const currentFilter = filterStaff.value;
+            const currentReportFilter = reportStaffFilter.value;
+            
+            let options = '<option value="">-- Semua Staf --</option>';
+            appState.staffList.forEach(s => {
+                if(s.role !== 'Admin') options += `<option value="${s.id}">${s.name}</option>`;
+            });
+            
+            filterStaff.innerHTML = options;
+            reportStaffFilter.innerHTML = options;
+            
+            filterStaff.value = currentFilter;
+            reportStaffFilter.value = currentReportFilter;
+        }
+
+        function updateDashboard() {
+            const today = new Date().toLocaleDateString('ms-MY', { day: '2-digit', month: '2-digit', year: 'numeric' }); 
+            const totalStaff = appState.staffList.filter(s => s.role !== 'Admin').length;
+            
+            let hadirCount = 0;
+            let tidakHadirCount = 0;
+            
+            appState.staffList.forEach(s => {
+                if(s.role !== 'Admin') {
+                    const rec = appState.attendanceList.find(r => r.date === today && r.staffId === s.id);
+                    if (rec) {
+                        if (rec.status === 'Hadir') hadirCount++;
+                        if (rec.status === 'Tidak Hadir') tidakHadirCount++;
+                    }
+                }
+            });
+            
+            const belumCount = totalStaff - (hadirCount + tidakHadirCount);
+            
+            document.getElementById('statTotalStaff').innerText = totalStaff;
+            document.getElementById('statHadir').innerText = hadirCount;
+            document.getElementById('statTidakHadir').innerText = tidakHadirCount;
+            document.getElementById('statBelum').innerText = belumCount < 0 ? 0 : belumCount;
+        }
+
+        function renderAdminAttendance() {
+            const tbody = document.querySelector('#allAttendanceTable tbody');
+            tbody.innerHTML = '';
+            
+            const monthFilter = document.getElementById('filterMonth').value;
+            const staffFilter = document.getElementById('filterStaff').value;
+            const statusFilter = document.getElementById('filterStatus').value;
+            
+            let filteredList = appState.attendanceList.filter(record => {
+                let pass = true;
+                if (monthFilter) {
+                    // Expecting DD/MM/YYYY or D/M/YYYY
+                    const parts = record.date.split('/');
+                    if (parts.length > 1) {
+                        const recordMonth = parts[1].padStart(2, '0');
+                        if (recordMonth !== monthFilter) pass = false;
+                    }
+                }
+                if (staffFilter && record.staffId !== staffFilter) pass = false;
+                
+                if (statusFilter) {
+                    if (statusFilter === 'Belum Disahkan') {
+                        if (record.verified !== 'Belum Disahkan') pass = false;
+                    } else {
+                        if (record.status !== statusFilter) pass = false;
+                    }
+                }
+                return pass;
+            });
+            
+            filteredList.sort((a,b) => b.recordId.localeCompare(a.recordId));
+            
+            filteredList.forEach(record => {
+                const tr = document.createElement('tr');
+                const badgeClass = record.verified === 'Disahkan' ? 'badge-success' : 'badge-warning';
+                const actionBtn = record.verified === 'Belum Disahkan' 
+                    ? `<button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="verifyRecord('${record.recordId}')">Sahkan</button>` 
+                    : `<span style="color:var(--text-light); font-size: 0.8rem;">Selesai</span>`;
+
+                tr.innerHTML = `
+                    <td>${record.date}</td>
+                    <td>${record.timeIn}</td>
+                    <td>${record.timeOut}</td>
+                    <td>${record.name}</td>
+                    <td><b>${record.status}</b></td>
+                    <td>${record.catatan || '-'}</td>
+                    <td><span class="badge ${badgeClass}">${record.verified}</span></td>
+                    <td>${actionBtn}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function verifyRecord(recordId) {
+            const record = appState.attendanceList.find(r => r.recordId === recordId);
+            if (record && record.status === 'Tidak Hadir') {
+                document.getElementById('verifyRecordId').value = recordId;
+                document.getElementById('catatanInput').value = '';
+                document.getElementById('catatanModal').classList.remove('hidden');
+            } else {
+                processVerification(recordId, '-');
+            }
+        }
+
+        function closeCatatanModal() {
+            document.getElementById('catatanModal').classList.add('hidden');
+        }
+
+        function submitCatatan(e) {
+            e.preventDefault();
+            const recordId = document.getElementById('verifyRecordId').value;
+            const catatan = document.getElementById('catatanInput').value;
+            processVerification(recordId, catatan);
+            closeCatatanModal();
+        }
+
+        async function processVerification(recordId, catatan) {
+            if(WEB_APP_URL !== "") {
+                 try {
+                    await fetch(`${WEB_APP_URL}?action=verifyAttendance`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: `action=verifyAttendance&data=${JSON.stringify({recordId: recordId, catatan: catatan})}`
+                    });
+                 } catch (e) { console.log(e); }
+            }
+            
+            // Kemas kini State Tempatan
+            const record = appState.attendanceList.find(r => r.recordId === recordId);
+            if(record) {
+                record.verified = 'Disahkan';
+                record.catatan = catatan;
+            }
+            refreshAdminData();
+            showToast("Kehadiran berjaya disahkan.");
+        }
+
+        function renderAdminStaff() {
+            const tbody = document.querySelector('#staffTable tbody');
+            tbody.innerHTML = '';
+            
+            appState.staffList.forEach(staff => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${staff.id}</td>
+                    <td>${staff.name}</td>
+                    <td>${staff.role}</td>
+                    <td>${staff.pin}</td>
+                    <td>
+                        <button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.8rem; margin-right: 5px;" onclick="editStaff('${staff.id}')">Edit</button>
+                        <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.8rem;" onclick="deleteStaff('${staff.id}')">Padam</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function openStaffModal(isEdit = false) {
+            document.getElementById('staffModal').classList.remove('hidden');
+            document.getElementById('modalTitle').innerText = isEdit ? "Edit Kakitangan" : "Tambah Kakitangan";
+            document.getElementById('isEdit').value = isEdit;
+            
+            if(!isEdit) {
+                document.getElementById('staffForm').reset();
+                document.getElementById('staffId').readOnly = false;
+            }
+        }
+
+        function closeStaffModal() {
+            document.getElementById('staffModal').classList.add('hidden');
+        }
+
+        function editStaff(staffId) {
+            const staff = appState.staffList.find(s => s.id === staffId);
+            if(staff) {
+                document.getElementById('staffId').value = staff.id;
+                document.getElementById('staffId').readOnly = true; 
+                document.getElementById('staffName').value = staff.name;
+                document.getElementById('staffRole').value = staff.role;
+                document.getElementById('staffPin').value = staff.pin;
+                openStaffModal(true);
+            }
+        }
+
+        async function saveStaff(e) {
+            e.preventDefault();
+            const id = document.getElementById('staffId').value.toUpperCase();
+            const name = document.getElementById('staffName').value;
+            const role = document.getElementById('staffRole').value;
+            const pin = document.getElementById('staffPin').value;
+            const isEdit = document.getElementById('isEdit').value === "true";
+
+            const payload = { id, name, role, pin };
+
+            if(WEB_APP_URL !== "") {
+                try {
+                    await fetch(`${WEB_APP_URL}?action=saveStaff`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: `action=saveStaff&data=${JSON.stringify(payload)}`
+                    });
+                } catch(err) { console.log(err); }
+            }
+
+            if(isEdit) {
+                const index = appState.staffList.findIndex(s => s.id === id);
+                if(index > -1) appState.staffList[index] = payload;
+                showToast("Maklumat dikemas kini.");
+            } else {
+                if(appState.staffList.find(s => s.id === id)) {
+                    showToast("Ralat: ID ini sudah wujud!");
+                    return;
+                }
+                appState.staffList.push(payload);
+                showToast("Kakitangan baru ditambah.");
+            }
+
+            closeStaffModal();
+            refreshAdminData();
+        }
+
+        async function deleteStaff(staffId) {
+            if(confirm("Anda pasti untuk memadam kakitangan ini?")) {
+                if(WEB_APP_URL !== "") {
+                    try {
+                        await fetch(`${WEB_APP_URL}?action=deleteStaff`, {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                            body: `action=deleteStaff&data=${JSON.stringify({id: staffId})}`
+                        });
+                    } catch(err) {}
+                }
+                appState.staffList = appState.staffList.filter(s => s.id !== staffId);
+                refreshAdminData();
+                showToast("Kakitangan telah dipadam.");
+            }
+        }
+
+        function renderPDFTable() {
+            const tbody = document.querySelector('#pdfTable tbody');
+            tbody.innerHTML = '';
+            
+            const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('pdf-date').innerText = "Tarikh Cetakan: " + new Date().toLocaleDateString('ms-MY', dateOptions);
+
+            const staffFilter = document.getElementById('reportStaffFilter').value;
+            let filteredList = appState.attendanceList;
+            
+            if (staffFilter) {
+                filteredList = filteredList.filter(r => r.staffId === staffFilter);
+            }
+            
+            filteredList.sort((a,b) => a.recordId.localeCompare(b.recordId)); // Susun lama ke baru (A-Z)
+
+            filteredList.forEach(record => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="border: 1px solid #ccc; padding: 8px; text-align: center;">${record.date}</td>
+                    <td style="border: 1px solid #ccc; padding: 8px; text-align: center;">${record.timeIn}</td>
+                    <td style="border: 1px solid #ccc; padding: 8px; text-align: center;">${record.timeOut}</td>
+                    <td style="border: 1px solid #ccc; padding: 8px;">${record.name}</td>
+                    <td style="border: 1px solid #ccc; padding: 8px; text-align: center; font-weight: 600;">${record.status}</td>
+                    <td style="border: 1px solid #ccc; padding: 8px;">${record.catatan || '-'}</td>
+                    <td style="border: 1px solid #ccc; padding: 8px; text-align: center;">${record.verified}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function generatePDF() {
+            showToast("Menjana Laporan PDF...");
+            const element = document.getElementById('pdf-content');
+            
+            const opt = {
+                margin:       [0.5, 0.5, 0.5, 0.5],
+                filename:     'Laporan_Kehadiran_Taska_Al_Fayadh.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true }, // useCORS penting untuk render logo Dropbox
+                jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+
+            // Guna html2pdf untuk muat turun dokumen PDF
+            html2pdf().set(opt).from(element).save();
+        }
+
+        // Muat data awal sebaik sahaja page dibuka
+        window.onload = async function() {
+            if(WEB_APP_URL !== "") {
+                try {
+                    showToast("Menyambung ke pangkalan data...");
+                    
+                    // Muat Staf
+                    const staffRes = await fetch(`${WEB_APP_URL}`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: 'action=getStaff'
+                    });
+                    const staffData = await staffRes.json();
+                    if(staffData.status === 'success' && staffData.data) {
+                        appState.staffList = staffData.data;
+                    }
+
+                    // Muat Kehadiran
+                    const attRes = await fetch(`${WEB_APP_URL}`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: 'action=getAttendance'
+                    });
+                    const attData = await attRes.json();
+                    if(attData.status === 'success' && attData.data) {
+                        appState.attendanceList = attData.data;
+                    }
+                    
+                    showToast("Sistem sedia digunakan!");
+                } catch(error) {
+                    console.log("Gagal menyambung ke pangkalan data Google Sheets.", error);
+                    showToast("Mod simulasi digunakan (Tiada sambungan DB).");
+                }
+            } else {
+                showToast("Sistem sedia (Mod Offline).");
+            }
+        };
+
+    </script>
+</body>
+</html>
