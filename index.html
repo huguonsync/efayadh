@@ -208,14 +208,23 @@
         /* Filter Section */
         .filter-section {
             display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
+            gap: 15px;
+            margin-bottom: 20px;
             flex-wrap: wrap;
         }
-        .filter-section select {
-            width: auto;
+        .filter-item {
             flex: 1;
             min-width: 150px;
+        }
+        .filter-item label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-light);
+            margin-bottom: 5px;
+        }
+        .filter-item select {
+            width: 100%;
             margin: 0;
         }
 
@@ -284,7 +293,8 @@
         @media (max-width: 600px) {
             .btn { width: 100%; margin-bottom: 10px; }
             .tabs { flex-direction: column; }
-            .filter-section select { width: 100%; }
+            .filter-section { flex-direction: column; gap: 10px; }
+            .filter-item select { width: 100%; }
             #clock { font-size: 2rem; }
         }
     </style>
@@ -292,7 +302,7 @@
 <body>
 
     <header>
-        <img src="https://dl.dropboxusercontent.com/scl/fi/chme0asi352b51nrjhd4i/317845957_532158662259663_6216147697822491430_n.jpg?rlkey=scoefxuggb3bzjf2l1l7muvty&st=jfhwln85" alt="Logo Taska Al Fayadh" class="logo-img">
+        <img src="https://dl.dropboxusercontent.com/scl/fi/chme0asi352b51nrjhd4i/317845957_532158662259663_6216147697822491430_n.jpg?rlkey=scoefxuggb3bzjf2l1l7muvty&st=jfhwln85" alt="Logo Taska Al Fayadh" class="logo-img" crossorigin="anonymous">
         <h1>Taska Al Fayadh</h1>
         <div class="subtitle">Sistem Kehadiran Pintar</div>
         <button id="logoutBtn" class="btn btn-outline logout-btn hidden" onclick="logout()">Log Keluar</button>
@@ -321,8 +331,8 @@
                 <div id="dateDisplay" style="color: var(--text-light); margin-bottom: 20px;"></div>
                 
                 <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
-                    <button class="btn btn-primary" onclick="clockIn()" style="font-size: 1.1rem; padding: 12px 25px;">Masuk</button>
-                    <button class="btn btn-danger" onclick="clockOut()" style="font-size: 1.1rem; padding: 12px 25px;">Pulang</button>
+                    <button class="btn btn-primary" onclick="clockIn()" style="font-size: 1.1rem; padding: 12px 35px;">Masuk</button>
+                    <button class="btn btn-danger" onclick="clockOut()" style="font-size: 1.1rem; padding: 12px 35px;">Pulang</button>
                 </div>
             </div>
 
@@ -390,30 +400,39 @@
                 </div>
                 
                 <div class="filter-section">
-                    <select id="filterMonth" onchange="renderAdminAttendance()">
-                        <option value="">-- Semua Bulan --</option>
-                        <option value="01">Januari</option>
-                        <option value="02">Februari</option>
-                        <option value="03">Mac</option>
-                        <option value="04">April</option>
-                        <option value="05">Mei</option>
-                        <option value="06">Jun</option>
-                        <option value="07">Julai</option>
-                        <option value="08">Ogos</option>
-                        <option value="09">September</option>
-                        <option value="10">Oktober</option>
-                        <option value="11">November</option>
-                        <option value="12">Disember</option>
-                    </select>
-                    <select id="filterStaff" onchange="renderAdminAttendance()">
-                        <option value="">-- Semua Staf --</option>
-                    </select>
-                    <select id="filterStatus" onchange="renderAdminAttendance()">
-                        <option value="">-- Semua Status --</option>
-                        <option value="Hadir">Hadir</option>
-                        <option value="Tidak Hadir">Tidak Hadir</option>
-                        <option value="Belum Disahkan">Tindakan Diperlukan</option>
-                    </select>
+                    <div class="filter-item">
+                        <label for="filterMonth">Pilih Bulan:</label>
+                        <select id="filterMonth" onchange="renderAdminAttendance()">
+                            <option value="">-- Semua Bulan --</option>
+                            <option value="01">Januari</option>
+                            <option value="02">Februari</option>
+                            <option value="03">Mac</option>
+                            <option value="04">April</option>
+                            <option value="05">Mei</option>
+                            <option value="06">Jun</option>
+                            <option value="07">Julai</option>
+                            <option value="08">Ogos</option>
+                            <option value="09">September</option>
+                            <option value="10">Oktober</option>
+                            <option value="11">November</option>
+                            <option value="12">Disember</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label for="filterStaff">Nama Kakitangan:</label>
+                        <select id="filterStaff" onchange="renderAdminAttendance()">
+                            <option value="">-- Semua Staf --</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label for="filterStatus">Status Kehadiran:</label>
+                        <select id="filterStatus" onchange="renderAdminAttendance()">
+                            <option value="">-- Semua Status --</option>
+                            <option value="Hadir">Hadir</option>
+                            <option value="Tidak Hadir">Tidak Hadir</option>
+                            <option value="Belum Disahkan">Tindakan Diperlukan</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div style="overflow-x: auto;">
@@ -467,10 +486,15 @@
                 <p style="color: var(--text-light); margin-bottom: 15px;">Cetak laporan kehadiran kakitangan untuk fail sekolah.</p>
                 
                 <div class="filter-section">
-                    <select id="reportStaffFilter" onchange="renderPDFTable()">
-                        <option value="">-- Semua Staf --</option>
-                    </select>
-                    <button class="btn btn-primary" onclick="generatePDF()">Muat Turun Laporan PDF</button>
+                    <div class="filter-item" style="flex: 2;">
+                        <label for="reportStaffFilter">Tapis Mengikut Kakitangan:</label>
+                        <select id="reportStaffFilter" onchange="renderPDFTable()">
+                            <option value="">-- Semua Staf --</option>
+                        </select>
+                    </div>
+                    <div class="filter-item" style="display: flex; align-items: flex-end;">
+                        <button class="btn btn-primary" style="width: 100%;" onclick="generatePDF()">Muat Turun Laporan PDF</button>
+                    </div>
                 </div>
                 
                 <!-- Preview Laporan (Sembunyi dari pandangan biasa, diguna untuk PDF render) -->
@@ -598,10 +622,10 @@
 
         function handleLogin(e) {
             e.preventDefault();
-            const id = document.getElementById('loginId').value.toUpperCase().trim();
-            const pin = document.getElementById('loginPin').value.trim();
+            const id = String(document.getElementById('loginId').value).toUpperCase().trim();
+            const pin = String(document.getElementById('loginPin').value).trim();
 
-            if (!appState.staffList || !Array.isArray(appState.staffList) || appState.staffList.length === 0) {
+            if (!appState.staffList || appState.staffList.length === 0) {
                 showToast("Data masih dimuat turun. Sila tunggu sebentar...");
                 return;
             }
@@ -796,6 +820,7 @@
             
             let filteredList = appState.attendanceList.filter(record => {
                 let pass = true;
+                
                 if (monthFilter) {
                     const parts = record.date.split('/');
                     if (parts.length > 1) {
@@ -803,7 +828,11 @@
                         if (recordMonth !== monthFilter) pass = false;
                     }
                 }
-                if (staffFilter && record.staffId !== staffFilter) pass = false;
+                
+                // Pembaikan: Bandingkan ID sebagai Text(String) dengan membuang ruang kosong 
+                if (staffFilter && String(record.staffId).trim().toUpperCase() !== String(staffFilter).trim().toUpperCase()) {
+                    pass = false;
+                }
                 
                 if (statusFilter) {
                     if (statusFilter === 'Belum Disahkan') {
@@ -847,7 +876,6 @@
             });
             select.innerHTML = options;
             
-            // Set default date to today for HTML5 date input (YYYY-MM-DD)
             const today = new Date();
             const yyyy = today.getFullYear();
             const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -875,7 +903,6 @@
 
             const staff = appState.staffList.find(s => s.id === staffId);
             
-            // Tukar format tarikh dari YYYY-MM-DD ke DD/MM/YYYY (Format Pangkalan Data Kita)
             const parts = dateVal.split('-');
             const formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
 
@@ -1018,7 +1045,8 @@
             let filteredList = appState.attendanceList;
             
             if (staffFilter) {
-                filteredList = filteredList.filter(r => r.staffId === staffFilter);
+                // Pembaikan perbandingan ID untuk PDF
+                filteredList = filteredList.filter(r => String(r.staffId).trim().toUpperCase() === String(staffFilter).trim().toUpperCase());
             }
             
             filteredList.sort((a,b) => a.recordId.localeCompare(b.recordId));
