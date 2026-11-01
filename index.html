@@ -636,6 +636,41 @@
         </div>
     </div>
 
+    <!-- Modal Tanda Hadir Manual (Admin) -->
+    <div id="manualHadirModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 10px; color: var(--primary-dark);">Tanda Kehadiran Kakitangan</h3>
+            <p style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 15px;">
+                Isi masa masuk dan pulang bagi kakitangan yang hadir bertugas tetapi lupa merekodkan kehadiran.
+            </p>
+            <form onsubmit="submitManualHadir(event)">
+                <input type="hidden" id="hadirRecordId">
+                <input type="hidden" id="hadirStaffId">
+                <input type="hidden" id="hadirDate">
+                <input type="hidden" id="hadirStaffName">
+
+                <div style="background: #f8fafc; padding: 10px; border-radius: 6px; margin-bottom: 15px; border: 1px solid var(--border); font-size: 0.85rem;">
+                    <div>Kakitangan: <b id="hadirDisplayStaff" style="color: var(--text-main);">-</b></div>
+                    <div>Tarikh: <b id="hadirDisplayDate" style="color: var(--text-main);">-</b></div>
+                </div>
+                
+                <label for="hadirTimeIn">Masa Masuk:</label>
+                <input type="time" id="hadirTimeIn" required value="07:30">
+                
+                <label for="hadirTimeOut">Masa Keluar / Pulang:</label>
+                <input type="time" id="hadirTimeOut" required value="17:00">
+                
+                <label for="hadirCatatan">Catatan Kehadiran:</label>
+                <input type="text" id="hadirCatatan" placeholder="Cth: Hadir (Lupa imbas kehadiran)">
+                
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Sahkan Hadir</button>
+                    <button type="button" class="btn btn-outline" style="flex: 1;" onclick="closeManualHadirModal()">Batal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Toast Notification -->
     <div id="toast" class="toast">Notifikasi Mesej</div>
 
@@ -1101,6 +1136,7 @@
 
                 // Butang tindakan individu
                 let actionHtml = '';
+                actionHtml += `<button class="btn btn-primary" style="padding: 3px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="openManualHadirModal('${record.recordId}')">Hadir</button>`;
                 if (record.verified !== 'Disahkan') {
                     actionHtml += `<button class="btn btn-outline" style="padding: 3px 8px; font-size: 0.75rem; margin-right: 4px;" onclick="verifySingle('${record.recordId}')">Sahkan</button>`;
                 }
@@ -1130,7 +1166,7 @@
                     <td style="${statusColor}">${record.status}</td>
                     <td>${record.catatan || '-'}</td>
                     <td><span class="badge ${badgeClass}">${record.verified}</span></td>
-                    <td>${actionHtml}</td>
+                    <td style="white-space: nowrap;">${actionHtml}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -1357,6 +1393,143 @@
             renderAdminAttendance();
             updateDashboard();
             showToast("Pengesahan kehadiran berjaya dikemas kini!");
+        }
+
+        // ============================================
+        // FUNGSI TANDA HADIR MANUAL (ADMIN)
+        // ============================================
+        function convertTimeTo24(timeStr) {
+            if (!timeStr || timeStr === '-') return '';
+            const clean = timeStr.trim().toUpperCase();
+            const isPM = clean.includes('PTG') || clean.includes('PM') || clean.includes('MLM');
+            const isAM = clean.includes('PG') || clean.includes('AM') || clean.includes('PAGI');
+            const match = clean.match(/(\d{1,2}):(\d{2})/);
+            if (!match) return '';
+            let hours = parseInt(match[1], 10);
+            const minutes = match[2];
+            if (isPM && hours < 12) hours += 12;
+            if (isAM && hours === 12) hours = 0;
+            return `${String(hours).padStart(2, '0')}:${minutes}`;
+        }
+
+        function formatTimeFromInput(timeStr) {
+            if (!timeStr) return "-";
+            const parts = timeStr.split(':');
+            if (parts.length < 2) return timeStr;
+            let h = parseInt(parts[0], 10);
+            const m = parts[1];
+            let ampm = 'PG';
+            if (h >= 12 && h < 14) ampm = 'TGH';
+            else if (h >= 14 && h < 19) ampm = 'PTG';
+            else if (h >= 19) ampm = 'MLM';
+            else ampm = 'PG';
+            
+            let displayH = h % 12;
+            if (displayH === 0) displayH = 12;
+            return `${String(displayH).padStart(2, '0')}:${m} ${ampm}`;
+        }
+
+        function openManualHadirModal(recordId) {
+            let rec = appState.adminDisplayList ? appState.adminDisplayList.find(r => r.recordId === recordId) : null;
+            if (!rec) {
+                rec = appState.attendanceList.find(r => r.recordId === recordId);
+            }
+            if (!rec) return;
+
+            document.getElementById('hadirRecordId').value = rec.recordId;
+            document.getElementById('hadirStaffId').value = rec.staffId;
+            document.getElementById('hadirDate').value = rec.date;
+            document.getElementById('hadirStaffName').value = rec.name;
+
+            document.getElementById('hadirDisplayStaff').innerText = `${rec.name} (${rec.staffId})`;
+            document.getElementById('hadirDisplayDate').innerText = `${rec.date} ${rec.dayName ? '(' + rec.dayName + ')' : ''}`;
+
+            const parsedIn = convertTimeTo24(rec.timeIn);
+            const parsedOut = convertTimeTo24(rec.timeOut);
+            document.getElementById('hadirTimeIn').value = parsedIn || '07:30';
+            document.getElementById('hadirTimeOut').value = parsedOut || '17:00';
+
+            const defaultCatatan = (rec.catatan && rec.catatan !== '-' && rec.catatan !== 'Tiada Rekod' && rec.catatan !== 'Cuti Hujung Minggu') 
+                ? rec.catatan 
+                : 'Hadir (Lupa Imbas Kehadiran)';
+            document.getElementById('hadirCatatan').value = defaultCatatan;
+
+            document.getElementById('manualHadirModal').classList.remove('hidden');
+        }
+
+        function closeManualHadirModal() {
+            document.getElementById('manualHadirModal').classList.add('hidden');
+        }
+
+        async function submitManualHadir(e) {
+            e.preventDefault();
+            const recordId = document.getElementById('hadirRecordId').value;
+            const staffId = document.getElementById('hadirStaffId').value;
+            const date = document.getElementById('hadirDate').value;
+            const name = document.getElementById('hadirStaffName').value;
+            const rawTimeIn = document.getElementById('hadirTimeIn').value;
+            const rawTimeOut = document.getElementById('hadirTimeOut').value;
+            const catatan = document.getElementById('hadirCatatan').value.trim() || 'Hadir (Lupa Imbas Kehadiran)';
+
+            const formattedTimeIn = formatTimeFromInput(rawTimeIn);
+            const formattedTimeOut = formatTimeFromInput(rawTimeOut);
+
+            closeManualHadirModal();
+            showToast("Mengemas kini rekod kehadiran...");
+
+            const isVirtual = String(recordId).startsWith('VIRTUAL_');
+            const targetRecId = isVirtual ? ('REC' + new Date().getTime() + Math.floor(Math.random()*100)) : recordId;
+
+            const existingIdx = appState.attendanceList.findIndex(r => r.date === date && String(r.staffId).trim().toUpperCase() === String(staffId).trim().toUpperCase());
+
+            if (existingIdx > -1) {
+                appState.attendanceList[existingIdx].timeIn = formattedTimeIn;
+                appState.attendanceList[existingIdx].timeOut = formattedTimeOut;
+                appState.attendanceList[existingIdx].status = 'Hadir';
+                appState.attendanceList[existingIdx].verified = 'Disahkan';
+                appState.attendanceList[existingIdx].catatan = catatan;
+            } else {
+                appState.attendanceList.push({
+                    recordId: targetRecId,
+                    date: date,
+                    timeIn: formattedTimeIn,
+                    timeOut: formattedTimeOut,
+                    staffId: staffId,
+                    name: name,
+                    status: 'Hadir',
+                    verified: 'Disahkan',
+                    catatan: catatan
+                });
+            }
+
+            renderAdminAttendance();
+            renderPDFTable();
+            updateDashboard();
+
+            if (WEB_APP_URL !== "") {
+                try {
+                    await fetch(`${WEB_APP_URL}?action=manualAttendance`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: `action=manualAttendance&data=${JSON.stringify({
+                            recordId: targetRecId,
+                            date: date,
+                            timeIn: formattedTimeIn,
+                            timeOut: formattedTimeOut,
+                            staffId: staffId,
+                            name: name,
+                            status: 'Hadir',
+                            verified: 'Disahkan',
+                            catatan: catatan
+                        })}`
+                    });
+                    await loadAttendanceData();
+                } catch (err) {
+                    console.error("Ralat simpan kehadiran manual:", err);
+                }
+            }
+
+            showToast(`Kehadiran ${name} berjaya ditandakan sebagai Hadir.`);
         }
 
         // ==========================
@@ -1680,7 +1853,7 @@
                             <div style="text-align: right; font-size: 8px;">
                                 <span style="display: inline-block; background: #dcfce7; color: #15803d; padding: 1px 5px; border-radius: 3px; font-weight: 600; margin-left: 2px;">Hadir: ${hadirCount}</span>
                                 <span style="display: inline-block; background: #fee2e2; color: #b91c1c; padding: 1px 5px; border-radius: 3px; font-weight: 600; margin-left: 2px;">Tidak Hadir: ${tidakHadirCount}</span>
-                                <span style="display: inline-block; background: #e0f2fe; color: #0369a1; padding: 1px 5px; border-radius: 3px; font-weight: 600; margin-left: 2px;">Cuti Am: ${cutiCount}</span>
+                                <span style="display: inline-block; background: #e0f2fe; color: #0369a1; padding: 1px 5px; border-radius: 3px; font-weight: 600; margin-left: 2px;">Cuti: ${cutiCount}</span>
                             </div>
                         </div>
 
