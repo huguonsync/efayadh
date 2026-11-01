@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Kehadiran Tadika Al Fayadh</title>
+    <title>Sistem Kehadiran Taska Al Fayadh</title>
     <!-- html2pdf for generating PDF Reports -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #4ade80; /* Warna Hijau Tadika */
+            --primary: #4ade80; /* Warna Hijau Taska */
             --primary-dark: #16a34a;
             --secondary: #60a5fa; /* Biru Muda */
             --accent: #fbbf24; /* Kuning Ceria */
@@ -348,8 +348,8 @@
 <body>
 
     <header>
-        <img src="https://dl.dropboxusercontent.com/scl/fi/chme0asi352b51nrjhd4i/317845957_532158662259663_6216147697822491430_n.jpg?rlkey=scoefxuggb3bzjf2l1l7muvty&st=jfhwln85" alt="Logo Tadika Al Fayadh" class="logo-img" crossorigin="anonymous">
-        <h1>Tadika Al Fayadh</h1>
+        <img src="https://dl.dropboxusercontent.com/scl/fi/chme0asi352b51nrjhd4i/317845957_532158662259663_6216147697822491430_n.jpg?rlkey=scoefxuggb3bzjf2l1l7muvty&st=jfhwln85" alt="Logo Taska Al Fayadh" class="logo-img" crossorigin="anonymous">
+        <h1>Taska Al Fayadh</h1>
         <div class="subtitle">Sistem Kehadiran Pintar</div>
         <button id="logoutBtn" class="btn btn-outline logout-btn hidden" onclick="logout()">Log Keluar</button>
     </header>
@@ -683,7 +683,50 @@
             attendanceList: []
         };
 
+        // Fungsi penyeragaman format tarikh (DD/MM/YYYY) bagi memastikan padanan 100% tepat
+        function normalizeDateStr(dateVal) {
+            if (!dateVal) return '';
+            let s = String(dateVal).trim();
+            if (!s || s === '-') return '';
+            
+            // Format DD/MM/YYYY atau D/M/YYYY
+            const ddmmyyyy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+            if (ddmmyyyy) {
+                const d = ddmmyyyy[1].padStart(2, '0');
+                const m = ddmmyyyy[2].padStart(2, '0');
+                const y = ddmmyyyy[3];
+                return `${d}/${m}/${y}`;
+            }
+            
+            // Format YYYY-MM-DD
+            const yyyymmdd = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+            if (yyyymmdd) {
+                const y = yyyymmdd[1];
+                const m = yyyymmdd[2].padStart(2, '0');
+                const d = yyyymmdd[3].padStart(2, '0');
+                return `${d}/${m}/${y}`;
+            }
+            
+            // Format ISO / Tarikh Objek Google Sheets
+            const parsed = new Date(s);
+            if (!isNaN(parsed.getTime())) {
+                const d = String(parsed.getDate()).padStart(2, '0');
+                const m = String(parsed.getMonth() + 1).padStart(2, '0');
+                const y = parsed.getFullYear();
+                return `${d}/${m}/${y}`;
+            }
+            
+            return s;
+        }
+
         setInterval(updateClock, 1000);
+        // Semakan data real-time setiap 25 saat secara automatik
+        setInterval(() => {
+            if (appState.currentUser && WEB_APP_URL !== "") {
+                loadAttendanceData();
+            }
+        }, 25000);
+
         function updateClock() {
             const now = new Date();
             const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
@@ -790,7 +833,13 @@
                 });
                 const attData = await attRes.json();
                 if(attData.status === 'success' && attData.data) {
-                    appState.attendanceList = attData.data;
+                    // Seragamkan semua tarikh yang dimuat turun dari Google Sheets
+                    appState.attendanceList = attData.data.map(item => ({
+                        ...item,
+                        date: normalizeDateStr(item.date),
+                        staffId: String(item.staffId).trim()
+                    }));
+
                     if(appState.currentUser && appState.currentUser.role === 'Admin') refreshAdminData();
                     if(appState.currentUser && appState.currentUser.role !== 'Admin') renderMyAttendance();
                 }
@@ -815,18 +864,16 @@
 
             // Pusingan (Loop) mengundur dari hari ini hingga 1 Oktober 2026
             while(currentDate >= startDate) {
-                // Format tarikh manual supaya tepat DD/MM/YYYY
                 const dd = String(currentDate.getDate()).padStart(2, '0');
                 const mm = String(currentDate.getMonth() + 1).padStart(2, '0');
                 const yyyy = currentDate.getFullYear();
                 const dateStr = `${dd}/${mm}/${yyyy}`;
                 
-                const existingRecord = myRecords.find(r => r.date === dateStr);
+                const existingRecord = myRecords.find(r => normalizeDateStr(r.date) === dateStr);
                 
                 if (existingRecord) {
                     displayData.push(existingRecord);
                 } else {
-                    // Cipta rekod maya (virtual) untuk hari yang tiada data
                     displayData.push({
                         date: dateStr,
                         timeIn: '-',
@@ -937,7 +984,8 @@
         }
 
         function updateDashboard() {
-            const today = new Date().toLocaleDateString('ms-MY', { day: '2-digit', month: '2-digit', year: 'numeric' }); 
+            const now = new Date();
+            const today = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
             const totalStaff = appState.staffList.filter(s => s.role !== 'Admin').length;
             
             let hadirCount = 0;
@@ -945,7 +993,7 @@
             
             appState.staffList.forEach(s => {
                 if(s.role !== 'Admin') {
-                    const rec = appState.attendanceList.find(r => r.date === today && r.staffId === s.id);
+                    const rec = appState.attendanceList.find(r => normalizeDateStr(r.date) === today && String(r.staffId).trim().toUpperCase() === String(s.id).trim().toUpperCase());
                     if (rec) {
                         if (rec.status === 'Hadir') hadirCount++;
                         if (rec.status === 'Tidak Hadir') tidakHadirCount++;
@@ -963,7 +1011,8 @@
 
         // Pembantu untuk mendapatkan maklumat hari dan status hujung minggu
         function getDayInfo(dateString) {
-            const parts = dateString.split('/');
+            const clean = normalizeDateStr(dateString);
+            const parts = clean.split('/');
             if(parts.length !== 3) return { dayName: '', isWeekend: false };
             const day = parseInt(parts[0], 10);
             const month = parseInt(parts[1], 10) - 1;
@@ -1032,7 +1081,7 @@
                     const dateStr = `${dd}/${mm}/${year}`;
                     const dayInfo = getDayInfo(dateStr);
 
-                    const existing = staffRecords.find(r => r.date === dateStr);
+                    const existing = staffRecords.find(r => normalizeDateStr(r.date) === dateStr);
 
                     if (existing) {
                         displayList.push({
@@ -1073,8 +1122,9 @@
                 // Papar rekod sedia ada dari Google Sheet jika mod Semua Staf
                 let filtered = appState.attendanceList.filter(record => {
                     let pass = true;
+                    const cleanDate = normalizeDateStr(record.date);
                     if (monthFilter) {
-                        const parts = record.date.split('/');
+                        const parts = cleanDate.split('/');
                         if (parts.length > 1 && parts[1].padStart(2, '0') !== monthFilter) pass = false;
                     }
                     if (statusFilter) {
@@ -1088,9 +1138,11 @@
                 });
 
                 displayList = filtered.map(r => {
-                    const dayInfo = getDayInfo(r.date);
+                    const cleanDate = normalizeDateStr(r.date);
+                    const dayInfo = getDayInfo(cleanDate);
                     return {
                         ...r,
+                        date: cleanDate,
                         dayName: dayInfo.dayName,
                         isWeekend: dayInfo.isWeekend,
                         isVirtual: false
@@ -1464,8 +1516,9 @@
         async function submitManualHadir(e) {
             e.preventDefault();
             const recordId = document.getElementById('hadirRecordId').value;
-            const staffId = document.getElementById('hadirStaffId').value;
-            const date = document.getElementById('hadirDate').value;
+            const staffId = String(document.getElementById('hadirStaffId').value).trim();
+            const rawDate = document.getElementById('hadirDate').value;
+            const date = normalizeDateStr(rawDate);
             const name = document.getElementById('hadirStaffName').value;
             const rawTimeIn = document.getElementById('hadirTimeIn').value;
             const rawTimeOut = document.getElementById('hadirTimeOut').value;
@@ -1475,14 +1528,19 @@
             const formattedTimeOut = formatTimeFromInput(rawTimeOut);
 
             closeManualHadirModal();
-            showToast("Mengemas kini rekod kehadiran...");
 
             const isVirtual = String(recordId).startsWith('VIRTUAL_');
             const targetRecId = isVirtual ? ('REC' + new Date().getTime() + Math.floor(Math.random()*100)) : recordId;
 
-            const existingIdx = appState.attendanceList.findIndex(r => r.date === date && String(r.staffId).trim().toUpperCase() === String(staffId).trim().toUpperCase());
+            // 1. KEMAS KINI MEMORI TEMPATAN (REAL-TIME OPTIMISTIC UPDATE)
+            const existingIdx = appState.attendanceList.findIndex(r => 
+                normalizeDateStr(r.date) === date && 
+                String(r.staffId).trim().toUpperCase() === staffId.toUpperCase()
+            );
 
             if (existingIdx > -1) {
+                appState.attendanceList[existingIdx].recordId = targetRecId;
+                appState.attendanceList[existingIdx].date = date;
                 appState.attendanceList[existingIdx].timeIn = formattedTimeIn;
                 appState.attendanceList[existingIdx].timeOut = formattedTimeOut;
                 appState.attendanceList[existingIdx].status = 'Hadir';
@@ -1502,16 +1560,19 @@
                 });
             }
 
+            // 2. SEGERAKAN PAPARAN JADUAL, DASHBOARD & PDF SERTA MERTA
             renderAdminAttendance();
             renderPDFTable();
             updateDashboard();
+            showToast(`Kehadiran ${name} berjaya dikemas kini.`);
 
+            // 3. SIMPAN KE GOOGLE SHEETS DI LATAR BELAKANG
             if (WEB_APP_URL !== "") {
                 try {
-                    await fetch(`${WEB_APP_URL}?action=manualAttendance`, {
+                    const response = await fetch(`${WEB_APP_URL}?action=manualAttendance`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                        body: `action=manualAttendance&data=${JSON.stringify({
+                        body: `action=manualAttendance&data=${encodeURIComponent(JSON.stringify({
                             recordId: targetRecId,
                             date: date,
                             timeIn: formattedTimeIn,
@@ -1521,15 +1582,17 @@
                             status: 'Hadir',
                             verified: 'Disahkan',
                             catatan: catatan
-                        })}`
+                        }))}`
                     });
-                    await loadAttendanceData();
+                    const resJson = await response.json();
+                    if(resJson.status === 'success') {
+                        // Muat semula data sah daripada pelayan
+                        await loadAttendanceData();
+                    }
                 } catch (err) {
                     console.error("Ralat simpan kehadiran manual:", err);
                 }
             }
-
-            showToast(`Kehadiran ${name} berjaya ditandakan sebagai Hadir.`);
         }
 
         // ==========================
@@ -1838,8 +1901,8 @@
                     <div class="pdf-staff-sheet" style="${pageBreakStyle} padding: 6px 12px; box-sizing: border-box; page-break-inside: avoid !important;">
                         <!-- Kepala Surat Rasmi (Letterhead Padat) -->
                         <div style="text-align: center; margin-bottom: 6px; border-bottom: 2px solid #16a34a; padding-bottom: 4px;">
-                            <img src="https://dl.dropboxusercontent.com/scl/fi/chme0asi352b51nrjhd4i/317845957_532158662259663_6216147697822491430_n.jpg?rlkey=scoefxuggb3bzjf2l1l7muvty&st=jfhwln85" alt="Logo Tadika" style="max-height: 40px; border-radius: 50%; border: 1.5px solid #16a34a; margin-bottom: 2px;" crossorigin="anonymous">
-                            <h2 style="color: #16a34a; margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; line-height: 1.15;">Tadika AL FAYADH</h2>
+                            <img src="https://dl.dropboxusercontent.com/scl/fi/chme0asi352b51nrjhd4i/317845957_532158662259663_6216147697822491430_n.jpg?rlkey=scoefxuggb3bzjf2l1l7muvty&st=jfhwln85" alt="Logo Taska" style="max-height: 40px; border-radius: 50%; border: 1.5px solid #16a34a; margin-bottom: 2px;" crossorigin="anonymous">
+                            <h2 style="color: #16a34a; margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; line-height: 1.15;">TASKA AL FAYADH</h2>
                             <p style="margin: 1px 0 0; font-weight: 700; font-size: 9.5px; color: #374151; line-height: 1.15;">PENYATA REKOD KEHADIRAN BULANAN KAKITANGAN</p>
                             <p style="margin: 0; font-size: 8px; color: #6b7280; line-height: 1.15;">Bulan: <b>${monthNames[monthVal]} ${year}</b> | Tarikh Cetakan: ${datePrintStr}</p>
                         </div>
@@ -1887,7 +1950,7 @@
                                 <p style="margin: 0;">Disahkan Oleh,</p>
                                 <div style="height: 24px;"></div>
                                 <p style="margin: 0;">__________________________</p>
-                                <p style="margin: 1px 0 0;"><b>Guru Besar Tadika Al Fayadh</b></p>
+                                <p style="margin: 1px 0 0;"><b>Guru Besar Taska Al Fayadh</b></p>
                             </div>
                         </div>
                     </div>
